@@ -7,6 +7,10 @@ Everything runs on your machine. No text is sent anywhere.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue) ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 
+<img width="2457" height="1652" alt="Screenshot 2026-09-06 230136" src="https://github.com/user-attachments/assets/64643c7e-c787-4dad-9e6e-a6f7dd8b5e86" />
+
+<img width="2450" height="1643" alt="Screenshot 2026-09-06 230124" src="https://github.com/user-attachments/assets/d70c3abb-00af-4efc-94c1-492d007e6969" />
+
 ---
 
 ## Why this exists
