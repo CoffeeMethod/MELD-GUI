@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MELD &middot; AI Text Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129517;</text></svg>">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ───────────────────────────── sidebar ───────────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M4 24V8l8 9 8-9v16" stroke="currentColor" stroke-width="2.6"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="25" cy="11" r="3.2" stroke="currentColor" stroke-width="2.2"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <strong>MELD</strong>
+        <span>AI text detector</span>
+      </div>
+    </div>
+
+    <nav class="nav" role="tablist">
+      <button class="nav-item is-active" data-view="analyze" role="tab">
+        <svg viewBox="0 0 20 20"><path d="M3 4h14M3 9h9M3 14h11"/></svg>
+        <span>Analyze</span>
+      </button>
+      <button class="nav-item" data-view="batch" role="tab">
+        <svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1.4"/><rect x="11" y="3" width="6" height="6" rx="1.4"/><rect x="3" y="11" width="6" height="6" rx="1.4"/><rect x="11" y="11" width="6" height="6" rx="1.4"/></svg>
+        <span>Batch</span>
+      </button>
+      <button class="nav-item" data-view="compare" role="tab">
+        <svg viewBox="0 0 20 20"><path d="M10 3v14M5 7l-2 3 2 3M15 7l2 3-2 3"/></svg>
+        <span>Compare</span>
+      </button>
+      <button class="nav-item" data-view="history" role="tab">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>
+        <span>History</span>
+      </button>
+      <button class="nav-item" data-view="model" role="tab">
+        <svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2.5"/><path d="M8 8h4v4H8z"/><path d="M10 1v3M10 16v3M1 10h3M16 10h3"/></svg>
+        <span>Model</span>
+      </button>
+      <button class="nav-item" data-view="about" role="tab">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.6"/></svg>
+        <span>Guide</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="model-pill" id="modelPill" role="status">
+        <span class="dot" id="modelDot"></span>
+        <div class="model-pill-text">
+          <strong id="modelPillTitle">Checking…</strong>
+          <span id="modelPillSub">model status</span>
+        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 20 20"><path d="M16 11.5A6.5 6.5 0 0 1 8.5 4a6.5 6.5 0 1 0 7.5 7.5z"/></svg>
+        </button>
+        <a class="icon-btn" href="/docs" target="_blank" rel="noopener" title="REST API docs" aria-label="API docs">
+          <svg viewBox="0 0 20 20"><path d="M7 4H4v12h12v-3"/><path d="M11 3h6v6"/><path d="M17 3l-8 8"/></svg>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ───────────────────────────── main ───────────────────────────── -->
+  <main class="main">
+
+    <!-- ══════════════ ANALYZE ══════════════ -->
+    <section class="view is-active" data-view="analyze">
+      <header class="view-head">
+        <div>
+          <h1>Analyze a document</h1>
+          <p class="sub">Paste text or drop a file. MELD scores the first 2,048 tokens per window and pools across the whole document.</p>
+        </div>
+        <div class="view-head-actions">
+          <button class="btn btn-ghost" id="btnSample">Load sample</button>
+          <button class="btn btn-ghost" id="btnClear">Clear</button>
+        </div>
+      </header>
+
+      <div class="split">
+        <!-- input column -->
+        <div class="panel panel-editor" id="dropZone">
+          <div class="panel-head">
+            <h2>Document</h2>
+            <div class="editor-meta">
+              <span id="wcWords">0 words</span>
+              <span class="sep">·</span>
+              <span id="wcChars">0 chars</span>
+              <span class="sep">·</span>
+              <span id="wcTokens">~0 tokens</span>
+            </div>
+          </div>
+
+          <div class="editor-wrap">
+            <textarea id="editor" spellcheck="false"
+              placeholder="Paste the document you want to check…&#10;&#10;MELD needs at least 100 words to be reliable. Shorter text scores high regardless of who wrote it."></textarea>
+            <div class="drop-overlay" id="dropOverlay">
+              <div>
+                <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                <strong>Drop to load</strong>
+                <span id="dropTypes">txt · md · pdf · docx</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="length-bar">
+            <div class="length-fill" id="lengthFill"></div>
+            <div class="length-marker" title="100-word reliability floor"></div>
+          </div>
+          <p class="hint" id="lengthHint">Below 100 words MELD is unreliable.</p>
+
+          <div class="controls">
+            <label class="field">
+              <span>Document type</span>
+              <select id="selStratum"></select>
+            </label>
+            <label class="field">
+              <span>False-positive rate</span>
+              <select id="selFpr"></select>
+            </label>
+            <div class="field field-actions">
+              <span>&nbsp;</span>
+              <div class="btn-row">
+                <button class="btn btn-secondary" id="btnUpload">
+                  <svg viewBox="0 0 20 20"><path d="M10 14V4M6 8l4-4 4 4M3 15v2h14v-2"/></svg>
+                  File
+                </button>
+                <button class="btn btn-primary" id="btnAnalyze">
+                  <span class="btn-label">Analyze</span>
+                  <kbd>Ctrl ⏎</kbd>
+                </button>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="fileInput" hidden>
+          <p class="hint hint-strata" id="strataHint"></p>
+        </div>
+
+        <!-- result column -->
+        <div class="panel panel-result" id="resultPanel">
+          <div class="empty-state" id="resultEmpty">
+            <div class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="44" class="ring-a"/>
+                <circle cx="60" cy="60" r="30" class="ring-b"/>
+                <path d="M32 74c10-24 18 6 28-14s16 10 28-18" class="wave"/>
+              </svg>
+            </div>
+            <h3>No analysis yet</h3>
+            <p>Results, the sentence heatmap and attribution appear here.</p>
+          </div>
+
+          <div class="result" id="resultBody" hidden>
+            <div class="verdict" id="verdictCard">
+              <div class="gauge-wrap">
+                <svg class="gauge" viewBox="0 0 200 130" id="gauge"></svg>
+                <div class="gauge-center">
+                  <div class="gauge-value" id="gaugeValue">—</div>
+                  <div class="gauge-label">P(AI)</div>
+                </div>
+              </div>
+              <div class="verdict-body">
+                <div class="verdict-badge" id="verdictBadge">—</div>
+                <p class="verdict-text" id="verdictText"></p>
+                <div class="score-scale" id="scoreScale"></div>
+                <div class="metrics" id="metrics"></div>
+              </div>
+            </div>
+
+            <div class="alerts" id="alerts"></div>
+
+            <div class="tabs">
+              <div class="tab-strip" role="tablist">
+                <button class="tab is-active" data-tab="highlight">Highlights</button>
+                <button class="tab" data-tab="sentences">Sentences</button>
+                <button class="tab" data-tab="attribution">Attribution</button>
+                <button class="tab" data-tab="windows">Windows</button>
+                <button class="tab" data-tab="stats">Statistics</button>
+                <button class="tab" data-tab="json">JSON</button>
+              </div>
+
+              <div class="tab-panel is-active" data-tab="highlight">
+                <div class="legend" id="heatLegend"></div>
+                <div class="heat-controls">
+                  <label class="switch">
+                    <input type="checkbox" id="chkTokenHeat">
+                    <span>Token-level detail</span>
+                  </label>
+                  <span class="hint">Colour shows each sentence's pooled margin against your threshold.</span>
+                </div>
+                <div class="heatmap" id="heatmap"></div>
+              </div>
+
+              <div class="tab-panel" data-tab="sentences">
+                <div class="table-tools">
+                  <input type="search" id="sentSearch" placeholder="Filter sentences…">
+                  <label class="switch">
+                    <input type="checkbox" id="chkFlaggedOnly">
+                    <span>Flagged only</span>
+                  </label>
+                </div>
+                <div class="table-wrap">
+                  <table class="table" id="sentTable">
+                    <thead>
+                      <tr>
+                        <th data-sort="index" class="col-num">#</th>
+                        <th data-sort="score" class="col-num">Score</th>
+                        <th data-sort="probability" class="col-num">P(AI)</th>
+                        <th data-sort="words" class="col-num">Words</th>
+                        <th data-sort="text">Sentence</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="tab-panel" data-tab="attribution">
+                <div class="attr-grid">
+                  <div class="attr-block">
+                    <h4>Model family lean</h4>
+                    <div class="bars" id="familyBars"></div>
+                  </div>
+                  <div class="attr-block">
+                    <h4>Edit operation lean</h4>
+                    <div class="bars" id="opBars"></div>
+                  </div>
+                </div>
+                <p class="note" id="attrNote"></p>
+              </div>
+
+              <div class="tab-panel" data-tab="windows">
+                <div class="window-chart" id="windowChart"></div>
+                <div class="table-wrap">
+                  <table class="table" id="windowTable">
+                    <thead><tr>
+                      <th class="col-num">#</th><th class="col-num">Tokens</th>
+                      <th class="col-num">Score</th><th class="col-num">P(AI)</th>
+                      <th>Flag</th><th>Excerpt</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="tab-panel" data-tab="stats">
+                <div class="stat-grid" id="statGrid"></div>
+                <h4 class="stat-heading">Calibration thresholds</h4>
+                <div class="table-wrap">
+                  <table class="table" id="calTable">
+                    <thead><tr>
+                      <th>Document type</th><th class="col-num">1% FPR</th>
+                      <th class="col-num">5% FPR</th><th class="col-num">10% FPR</th>
+                      <th class="col-num">Human samples</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="tab-panel" data-tab="json">
+                <div class="json-tools">
+                  <button class="btn btn-ghost btn-sm" id="btnCopyJson">Copy</button>
+                  <button class="btn btn-ghost btn-sm" id="btnDownloadJson">Download .json</button>
+                  <button class="btn btn-ghost btn-sm" id="btnDownloadCsv">Sentences .csv</button>
+                  <button class="btn btn-ghost btn-sm" id="btnPrint">Print report</button>
+                </div>
+                <pre class="json-view" id="jsonView"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ BATCH ══════════════ -->
+    <section class="view" data-view="batch">
+      <header class="view-head">
+        <div>
+          <h1>Batch scan</h1>
+          <p class="sub">Score many documents in one pass. Results stream in as each finishes.</p>
+        </div>
+        <div class="view-head-actions">
+          <button class="btn btn-ghost" id="btnBatchExport" disabled>Export CSV</button>
+          <button class="btn btn-ghost" id="btnBatchCancel" disabled>Cancel</button>
+        </div>
+      </header>
+
+      <div class="panel">
+        <div class="batch-drop" id="batchDrop">
+          <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          <strong>Drop files here, or click to browse</strong>
+          <span>txt · md · pdf · docx — dropped folders are read file by file</span>
+          <input type="file" id="batchInput" multiple hidden>
+        </div>
+
+        <div class="controls controls-batch">
+          <label class="field">
+            <span>Document type</span>
+            <select id="batchStratum"></select>
+          </label>
+          <label class="field">
+            <span>False-positive rate</span>
+            <select id="batchFpr"></select>
+          </label>
+          <div class="field field-actions">
+            <span>&nbsp;</span>
+            <button class="btn btn-primary" id="btnBatchRun" disabled>Run batch</button>
+          </div>
+        </div>
+
+        <div class="batch-queue" id="batchQueue"></div>
+
+        <div class="progress-block" id="batchProgress" hidden>
+          <div class="progress"><div class="progress-fill" id="batchBar"></div></div>
+          <div class="progress-meta"><span id="batchStatus"></span><span id="batchCount"></span></div>
+        </div>
+
+        <div class="batch-summary" id="batchSummary" hidden></div>
+
+        <div class="table-wrap">
+          <table class="table" id="batchTable">
+            <thead><tr>
+              <th>Document</th><th class="col-num">Words</th><th class="col-num">P(AI)</th>
+              <th class="col-num">Score</th><th>Verdict</th><th>Family lean</th><th>Status</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ COMPARE ══════════════ -->
+    <section class="view" data-view="compare">
+      <header class="view-head">
+        <div>
+          <h1>Compare documents</h1>
+          <p class="sub">Score two passages under identical settings — useful for before/after edits or a known-human control.</p>
+        </div>
+        <div class="view-head-actions">
+          <button class="btn btn-primary" id="btnCompare">Compare</button>
+        </div>
+      </header>
+
+      <div class="panel">
+        <div class="controls">
+          <label class="field">
+            <span>Document type</span>
+            <select id="cmpStratum"></select>
+          </label>
+          <label class="field">
+            <span>False-positive rate</span>
+            <select id="cmpFpr"></select>
+          </label>
+        </div>
+        <div class="compare-grid">
+          <div class="compare-cell">
+            <input class="cmp-name" id="cmpNameA" value="Document A">
+            <textarea id="cmpTextA" spellcheck="false" placeholder="First document…"></textarea>
+            <div class="cmp-result" id="cmpResultA"></div>
+          </div>
+          <div class="compare-cell">
+            <input class="cmp-name" id="cmpNameB" value="Document B">
+            <textarea id="cmpTextB" spellcheck="false" placeholder="Second document…"></textarea>
+            <div class="cmp-result" id="cmpResultB"></div>
+          </div>
+        </div>
+        <div class="compare-delta" id="cmpDelta" hidden></div>
+      </div>
+    </section>
+
+    <!-- ══════════════ HISTORY ══════════════ -->
+    <section class="view" data-view="history">
+      <header class="view-head">
+        <div>
+          <h1>History</h1>
+          <p class="sub">Every analysis is stored locally in SQLite. Nothing leaves this machine.</p>
+        </div>
+        <div class="view-head-actions">
+          <button class="btn btn-ghost" id="btnHistExport">Export CSV</button>
+          <button class="btn btn-danger-ghost" id="btnHistClear">Clear all</button>
+        </div>
+      </header>
+
+      <div class="stat-grid stat-grid-wide" id="histStats"></div>
+
+      <div class="panel">
+        <div class="table-tools">
+          <input type="search" id="histSearch" placeholder="Search history…">
+          <label class="switch">
+            <input type="checkbox" id="histFlagged">
+            <span>Flagged only</span>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="histTable">
+            <thead><tr>
+              <th>When</th><th>Label</th><th class="col-num">Words</th>
+              <th class="col-num">P(AI)</th><th>Verdict</th><th>Type</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager" id="histPager"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODEL ══════════════ -->
+    <section class="view" data-view="model">
+      <header class="view-head">
+        <div>
+          <h1>Model</h1>
+          <p class="sub">Download, load and inspect the MELD checkpoint.</p>
+        </div>
+        <div class="view-head-actions">
+          <button class="btn btn-primary" id="btnLoadModel">Load model</button>
+          <button class="btn btn-ghost" id="btnUnloadModel">Unload</button>
+        </div>
+      </header>
+
+      <div class="panel">
+        <div class="progress-block" id="modelProgress" hidden>
+          <div class="progress"><div class="progress-fill" id="modelBar"></div></div>
+          <div class="progress-meta"><span id="modelProgressText"></span><span id="modelProgressPct"></span></div>
+        </div>
+        <div class="controls">
+          <label class="field">
+            <span>Device</span>
+            <select id="selDevice">
+              <option value="">Automatic</option>
+              <option value="cuda">CUDA (GPU)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </label>
+        </div>
+        <div class="stat-grid" id="modelStats"></div>
+        <div class="model-meta" id="modelMeta"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════ GUIDE ══════════════ -->
+    <section class="view" data-view="about">
+      <header class="view-head">
+        <div>
+          <h1>Reading the results</h1>
+          <p class="sub">What this detector can and cannot tell you.</p>
+        </div>
+      </header>
+      <div class="panel prose" id="guide"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="overlay" id="busyOverlay" hidden>
+  <div class="spinner"></div>
+  <p id="busyText">Working…</p>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

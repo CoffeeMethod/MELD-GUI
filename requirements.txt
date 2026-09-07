@@ -1,0 +1,15 @@
+# Core inference
+torch>=2.2
+transformers>=4.48        # ModernBERT/Ettin backbone support landed in 4.48
+safetensors>=0.4
+huggingface_hub>=0.23
+
+# Web server
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9   # multipart uploads
+jinja2>=3.1
+
+# Optional document extraction
+pypdf>=4.0
+python-docx>=1.1

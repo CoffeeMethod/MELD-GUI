@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.idea/
+*.egg-info/
+.pytest_cache/
+
+# Local analysis history (generated at runtime)
+data/*.sqlite3
+data/*.sqlite3-*
