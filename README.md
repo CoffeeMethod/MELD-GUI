@@ -1,6 +1,6 @@
 # MELD GUI
 
-A local web interface for [MELD](https://huggingface.co/anon-review-meld-2026/meld), a
+A local web interface for [MELD](https://arxiv.org/abs/2605.06903), a
 395M-parameter encoder that detects AI-generated English text.
 
 Everything runs on your machine. No text is sent anywhere.
