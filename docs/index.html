@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MELD GUI — documentation</title>
+<meta name="description" content="Documentation for MELD GUI, a local web interface for the MELD AI-generated text detector: calibrated thresholds, sentence heatmaps, batch scanning and a REST API.">
+<meta property="og:title" content="MELD GUI — documentation">
+<meta property="og:description" content="A local web interface for the MELD AI-generated text detector.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/docs.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129517;</text></svg>">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <button class="burger" id="burger" aria-label="Toggle navigation">
+    <svg viewBox="0 0 20 20"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+  </button>
+  <a class="logo" href="#top">
+    <span class="logo-mark">
+      <svg viewBox="0 0 32 32"><path d="M4 24V8l8 9 8-9v16" stroke-width="2.6"/><circle cx="25" cy="11" r="3.2" stroke-width="2.2"/></svg>
+    </span>
+    <span class="logo-text">MELD GUI<em>docs</em></span>
+  </a>
+  <div class="topbar-right">
+    <a class="ghost-link" href="#api">API</a>
+    <a class="ghost-link" href="#faq">FAQ</a>
+    <a class="ghost-link repo" href="https://github.com/CoffeeMethod/meld-gui" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" class="gh"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">
+      <svg viewBox="0 0 20 20"><path d="M16 11.5A6.5 6.5 0 0 1 8.5 4a6.5 6.5 0 1 0 7.5 7.5z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="shell">
+
+  <!-- ─────────────────────────── sidebar ─────────────────────────── -->
+  <nav class="sidenav" id="sidenav" aria-label="Documentation">
+    <div class="nav-group">
+      <span class="nav-title">Getting started</span>
+      <a href="#overview">Overview</a>
+      <a href="#install">Installation</a>
+      <a href="#first-run">First run</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-title">Using it</span>
+      <a href="#interpreting">Reading a result</a>
+      <a href="#thresholds">Thresholds &amp; FPR</a>
+      <a href="#heatmap">Sentence heatmap</a>
+      <a href="#long-documents">Long documents</a>
+      <a href="#attribution">Attribution</a>
+      <a href="#views">The five views</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-title">Reference</span>
+      <a href="#api">REST API</a>
+      <a href="#config">Configuration</a>
+      <a href="#cli">CLI flags</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-title">Development</span>
+      <a href="#architecture">Architecture</a>
+      <a href="#extending">Extending</a>
+      <a href="#testing">Testing</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-title">About</span>
+      <a href="#limitations">Limitations</a>
+      <a href="#faq">FAQ</a>
+      <a href="#provenance">Provenance</a>
+      <a href="#licence">Licence</a>
+    </div>
+  </nav>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ─────────────────────────── content ─────────────────────────── -->
+  <main class="content" id="main">
+
+    <section class="hero" id="top">
+      <span class="eyebrow">Local · Private · Apache-2.0</span>
+      <h1>Detect AI-generated text,<br>and see <em>why</em>.</h1>
+      <p class="lede">
+        A web interface for <a href="https://huggingface.co/anon-review-meld-2026/meld" target="_blank" rel="noopener">MELD</a>,
+        a 395M-parameter encoder that scores English documents for machine authorship.
+        It runs entirely on your machine — no text leaves it.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#install">Get started</a>
+        <a class="btn btn-ghost" href="#interpreting">How to read a score</a>
+      </div>
+      <div class="hero-stats">
+        <div><strong>395M</strong><span>parameters</span></div>
+        <div><strong>2,048</strong><span>token context</span></div>
+        <div><strong>12,461</strong><span>human docs calibrated</span></div>
+        <div><strong>~3,900</strong><span>tokens/sec on GPU</span></div>
+      </div>
+    </section>
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        The released MELD checkpoint ships a short scorer that answers one question:
+        what is <code>P(AI)</code> for this document? That number on its own is hard to
+        act on. This app keeps that computation bit-for-bit identical and adds the
+        context needed to actually read it.
+      </p>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Calibrated decisions</h3>
+          <p>Scores are compared against the false-positive-rate thresholds shipped in
+          the checkpoint, per document genre — not against an arbitrary 0.5.</p>
+        </div>
+        <div class="card">
+          <h3>Evidence, not verdicts</h3>
+          <p>The document score pools the most machine-like 25% of tokens, so per-token
+          margins already exist. They are mapped back to the text as a heatmap.</p>
+        </div>
+        <div class="card">
+          <h3>Any length</h3>
+          <p>Documents past 2,048 tokens are scored in overlapping windows and pooled,
+          with each window reported separately.</p>
+        </div>
+        <div class="card">
+          <h3>Scriptable</h3>
+          <p>The interface is a client of the app's own REST API. Anything you can click,
+          you can automate.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSTALL -->
+    <section id="install">
+      <h2>Installation</h2>
+      <p>Python 3.10 or newer. A CUDA GPU is optional — the model runs on CPU too, just
+      slower.</p>
+
+      <pre><code>git clone https://github.com/YOUR-USERNAME/meld-gui.git
+cd meld-gui
+
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS / Linux
+
+pip install -r requirements.txt</code></pre>
+
+      <div class="callout callout-info">
+        <strong>GPU users:</strong> the default <code>torch</code> wheel is CPU-only.
+        For CUDA, install it explicitly first —
+        <code>pip install torch --index-url https://download.pytorch.org/whl/cu124</code>
+        — then run the requirements install.
+      </div>
+    </section>
+
+    <!-- FIRST RUN -->
+    <section id="first-run">
+      <h2>First run</h2>
+      <pre><code>python -m meld_gui</code></pre>
+      <p>
+        This opens <code>http://127.0.0.1:8000</code>. The checkpoint is
+        <em>not</em> bundled: on first use go to <strong>Model → Download &amp; load</strong>
+        to fetch it (~1.6&nbsp;GB, cached in your HuggingFace folder afterwards, so this
+        happens once).
+      </p>
+      <p>Once the sidebar pill reads <strong>Model ready</strong>, paste a document into
+      the editor and press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Enter</kbd>.</p>
+
+      <h3>Verifying the install</h3>
+      <pre><code>pytest -m "not model"    # 36 logic tests, no checkpoint needed
+pytest                   # all 53, including live-model integration</code></pre>
+    </section>
+
+    <!-- INTERPRETING -->
+    <section id="interpreting">
+      <h2>Reading a result</h2>
+
+      <div class="callout callout-warn">
+        <strong>A flag is not proof.</strong> At a 1% false-positive rate, scanning 500
+        genuinely human essays still produces about five wrong flags. Use this to
+        prioritise a human review — never as the sole basis for a decision about a person.
+      </div>
+
+      <h3>Raw score vs probability</h3>
+      <p>
+        MELD's decision happens in <strong>raw-score</strong> space. The percentage on the
+        gauge is simply <code>sigmoid(raw score)</code> — a squashed view of the same
+        number, not a calibrated "chance this is AI". Two documents at 99.2% and 99.6%
+        may be far apart in raw score; two at 30% and 35% may be nearly identical.
+      </p>
+      <p>Read the <strong>margin</strong> instead: how far the raw score sits above or
+      below your chosen cut-off. That is the number the verdict is built on.</p>
+
+      <h3>Verdict bands</h3>
+      <p>The flag itself is always <code>score &gt; threshold</code>. The four bands are a
+      presentation layer on top of the margin:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Band</th><th>Margin vs cut-off</th><th>Reading</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill pill-ai">Strong AI signal</span></td><td>≥ +2.0</td><td>Well past the cut-off.</td></tr>
+            <tr><td><span class="pill pill-likely">Likely AI-generated</span></td><td>0 to +2.0</td><td>Flagged, but near the boundary.</td></tr>
+            <tr><td><span class="pill pill-uncertain">Inconclusive</span></td><td>−1.5 to 0</td><td>Below the cut-off, but not comfortably.</td></tr>
+            <tr><td><span class="pill pill-human">Likely human-written</span></td><td>&lt; −1.5</td><td>Inside the human range.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The 100-word floor</h3>
+      <p>
+        Short text scores high regardless of who wrote it. Below 100 words the result is
+        noise, and the app says so explicitly rather than showing a confident-looking
+        number. The length bar under the editor tracks this.
+      </p>
+    </section>
+
+    <!-- THRESHOLDS -->
+    <section id="thresholds">
+      <h2>Thresholds &amp; false-positive rate</h2>
+      <p>
+        The checkpoint was calibrated on 12,461 human documents. It ships, for each genre,
+        the raw score below which 99% / 95% / 90% of that genuine human writing fell.
+        Choosing <strong>1% FPR</strong> means roughly one human document in a hundred
+        <em>of that genre</em> would be wrongly flagged.
+      </p>
+      <p>These vary a great deal, which is why setting <strong>Document type</strong>
+      matters more than most users expect:</p>
+
+      <div class="table-wrap">
+        <table class="num">
+          <thead><tr><th>Document type</th><th>1% FPR</th><th>5% FPR</th><th>10% FPR</th><th>Calibration n</th></tr></thead>
+          <tbody>
+            <tr><td>General / mixed</td><td>+1.92</td><td>−0.47</td><td>−1.26</td><td>12,461</td></tr>
+            <tr><td>Academic writing</td><td>+1.21</td><td>−1.15</td><td>−1.44</td><td>1,654</td></tr>
+            <tr><td>Creative writing</td><td>+2.39</td><td>+0.44</td><td>−0.61</td><td>472</td></tr>
+            <tr><td>Q&amp;A / social</td><td>+2.62</td><td>+1.35</td><td>+0.19</td><td>1,009</td></tr>
+            <tr><td>Reviews</td><td>+2.80</td><td>+0.80</td><td>−0.13</td><td>443</td></tr>
+            <tr><td>Web prose</td><td>+1.43</td><td>−1.03</td><td>−1.43</td><td>8,028</td></tr>
+            <tr><td>Encyclopedic</td><td>+1.91</td><td>−0.63</td><td>−1.35</td><td>415</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        A raw score of <code>+1.6</code> is <em>flagged</em> as academic writing and
+        <em>cleared</em> as general prose. Same document, same model, different question
+        being asked.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>Which FPR should I pick?</strong> 1% when a false accusation is costly —
+        graded work, hiring, anything involving a named person. 5–10% when you are
+        triaging a large pile and a human will look at everything flagged anyway.
+      </div>
+    </section>
+
+    <!-- HEATMAP -->
+    <section id="heatmap">
+      <h2>Sentence heatmap</h2>
+      <p>
+        The document score is the mean of the most machine-like <code>ρ = 25%</code> of
+        tokens. That means per-token margins are computed as a matter of course; the app
+        maps them back to character offsets and colours the text.
+      </p>
+      <p>
+        Each sentence gets the same top-25% pooling applied within itself, so the colour
+        answers "how machine-like is the most machine-like quarter of this sentence".
+        Toggle <strong>Token-level detail</strong> for per-token shading instead.
+      </p>
+      <div class="callout callout-warn">
+        Sentence colours are diagnostic, not decisions. The thresholds were calibrated on
+        whole documents of 100+ words, so a single red sentence means far less than a
+        consistently red document.
+      </div>
+      <p>This is the reason a mostly-human document with a few generated paragraphs can
+      still score high overall — and the heatmap is how you find those paragraphs.</p>
+    </section>
+
+    <!-- LONG DOCUMENTS -->
+    <section id="long-documents">
+      <h2>Long documents</h2>
+      <p>MELD reads 2,048 tokens at a time. Longer documents are handled like this:</p>
+      <ol class="steps">
+        <li><strong>Window.</strong> The token stream is cut into overlapping windows
+            (2,046 content tokens, 128 overlap by default).</li>
+        <li><strong>Score.</strong> Windows are batched through the model.</li>
+        <li><strong>Stitch.</strong> Where two windows cover the same token, the copy that
+            sat <em>furthest from a window edge</em> wins — it was scored with the most
+            context on both sides.</li>
+        <li><strong>Pool.</strong> The released top-25% rule is then applied across the
+            whole document, not per window.</li>
+      </ol>
+      <p>The <strong>Windows</strong> tab shows each window's own score, so you can see
+      whether a long document is uniformly machine-like or only in places.</p>
+    </section>
+
+    <!-- ATTRIBUTION -->
+    <section id="attribution">
+      <h2>Attribution</h2>
+      <p>
+        The checkpoint carries 11 model-family prototypes and 9 edit-operation prototypes.
+        The Attribution tab reads the softmax over those prototypes for the tokens that
+        actually drove the score.
+      </p>
+      <div class="chips">
+        <span class="chip">gpt</span><span class="chip">llama</span><span class="chip">mistral</span>
+        <span class="chip">mpt</span><span class="chip">cohere</span><span class="chip">google</span>
+        <span class="chip">anthropic</span><span class="chip">qwen</span><span class="chip">legacy_open</span>
+        <span class="chip">essay_ai</span><span class="chip">unknown_ai</span>
+      </div>
+      <div class="chips">
+        <span class="chip alt">polish</span><span class="chip alt">paraphrase</span><span class="chip alt">academic</span>
+        <span class="chip alt">humanize</span><span class="chip alt">roundtrip</span><span class="chip alt">summarize</span>
+        <span class="chip alt">expand</span><span class="chip alt">generate_from_context</span>
+        <span class="chip alt">generate_from_abstract</span>
+      </div>
+      <div class="callout callout-warn">
+        <strong>Indicative only.</strong> These prototypes ship in the checkpoint, but the
+        model card publishes no accuracy figures for them. Read the output as a stylistic
+        lean, never as identification of a specific model or a specific editing step.
+      </div>
+    </section>
+
+    <!-- VIEWS -->
+    <section id="views">
+      <h2>The five views</h2>
+      <dl class="deflist">
+        <dt>Analyze</dt>
+        <dd>One document. Gauge, calibrated score scale, sentence heatmap, sortable
+            sentence table, attribution, per-window breakdown, statistics, raw JSON.
+            Exports to JSON, CSV and print.</dd>
+        <dt>Batch</dt>
+        <dd>Drop many files at once. Results stream in as each finishes, with a running
+            flagged count and CSV export.</dd>
+        <dt>Compare</dt>
+        <dd>Two documents under identical settings, with the raw-score delta spelled out.
+            Useful for before/after edits, or scoring a known-human control alongside the
+            document you actually care about.</dd>
+        <dt>History</dt>
+        <dd>Every run is stored in local SQLite. Searchable, filterable to flagged only,
+            re-openable, CSV exportable.</dd>
+        <dt>Model</dt>
+        <dd>Download progress, device selection, and a live read of the checkpoint's
+            configuration and calibration table.</dd>
+      </dl>
+    </section>
+
+    <!-- API -->
+    <section id="api">
+      <h2>REST API</h2>
+      <p>
+        The interface is a client of this API — there is nothing the UI can do that a
+        script cannot. Interactive docs are served at <code>/docs</code> while the app is
+        running.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>/api/health</code></td><td>GET</td><td>Liveness and model-loaded flag</td></tr>
+            <tr><td><code>/api/config</code></td><td>GET</td><td>Strata, FPR levels, limits — available before load</td></tr>
+            <tr><td><code>/api/model</code></td><td>GET</td><td>Status, device, progress, calibration</td></tr>
+            <tr><td><code>/api/model/load</code></td><td>POST</td><td>Download and load (async, poll status)</td></tr>
+            <tr><td><code>/api/model/unload</code></td><td>POST</td><td>Free memory</td></tr>
+            <tr><td><code>/api/analyze</code></td><td>POST</td><td>Score a document</td></tr>
+            <tr><td><code>/api/analyze/file</code></td><td>POST</td><td>Score an uploaded file</td></tr>
+            <tr><td><code>/api/extract</code></td><td>POST</td><td>Extract text without scoring</td></tr>
+            <tr><td><code>/api/compare</code></td><td>POST</td><td>Score several documents together</td></tr>
+            <tr><td><code>/api/batch</code></td><td>POST</td><td>Start a background batch job</td></tr>
+            <tr><td><code>/api/batch/{id}</code></td><td>GET</td><td>Poll job progress</td></tr>
+            <tr><td><code>/api/batch/{id}/export.csv</code></td><td>GET</td><td>Download job results</td></tr>
+            <tr><td><code>/api/history</code></td><td>GET / DELETE</td><td>List or clear stored analyses</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Scoring a document</h3>
+      <pre><code>import requests
+
+BASE = "http://127.0.0.1:8000"
+requests.post(f"{BASE}/api/model/load")          # once per server start
+
+r = requests.post(f"{BASE}/api/analyze", json={
+    "text": open("essay.txt", encoding="utf-8").read(),
+    "stratum": "academic",       # match the genre being checked
+    "fpr": "fpr_0.01",           # 1% false-positive rate
+}).json()
+
+d = r["decision"]
+print(f"{d['probability']:.1%}  raw={d['score']:+.2f}  "
+      f"cut-off={d['threshold']:+.2f}  flagged={d['flagged']}")
+
+for s in sorted(r["sentences"], key=lambda s: -s["score"])[:3]:
+    print(f"  {s['score']:+.2f}  {s['text'][:70]}")</code></pre>
+
+      <h3>Response shape</h3>
+      <pre><code>{
+  "decision":    { "score", "probability", "threshold", "margin",
+                   "flagged", "verdict", "verdict_label", "stratum", "fpr" },
+  "statistics":  { "words", "sentences", "paragraphs", "type_token_ratio", ... },
+  "tokens":      { "count", "windows", "rho", "pooled_tokens", "max_length" },
+  "timing":      { "seconds", "tokens_per_second", "device" },
+  "warnings":    [ { "level", "message" } ],
+  "attribution": { "families": [...], "operations": [...], "note" },
+  "sentences":   [ { "index", "start", "end", "text", "score",
+                     "probability", "flagged", ... } ],
+  "chunks":      [ { "index", "token_start", "token_end", "score", ... } ],
+  "token_detail":{ "offsets": [[start, end], ...], "scores": [...] }
+}</code></pre>
+
+      <div class="callout callout-info">
+        <strong>Offsets are exact.</strong> Every <code>start</code>/<code>end</code> pair
+        indexes into the string you submitted, so
+        <code>text[s["start"]:s["end"]]</code> reconstructs the sentence verbatim. A test
+        asserts this.
+      </div>
+
+      <h3>Batch scanning a folder</h3>
+      <pre><code>import time, pathlib, requests
+
+BASE = "http://127.0.0.1:8000"
+docs = [{"name": p.name, "text": p.read_text(encoding="utf-8")}
+        for p in pathlib.Path("essays").glob("*.txt")]
+
+job = requests.post(f"{BASE}/api/batch",
+                    json={"documents": docs, "stratum": "academic"}).json()
+
+while True:
+    status = requests.get(f"{BASE}/api/batch/{job['id']}").json()
+    print(f"{status['completed']}/{status['total']}", end="\r")
+    if status["status"] != "running":
+        break
+    time.sleep(0.5)
+
+for item in status["items"]:
+    if item.get("flagged"):
+        print(f"FLAG  {item['probability']:.1%}  {item['name']}")</code></pre>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="config">
+      <h2>Configuration</h2>
+      <p>Every setting takes a <code>MELD_</code>-prefixed environment variable, so
+      deployment config stays out of the code.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>MELD_REPO_ID</code></td><td><code>anon-review-meld-2026/meld</code></td><td>Checkpoint to fetch</td></tr>
+            <tr><td><code>MELD_MODEL_DIR</code></td><td><em>unset</em></td><td>Local folder instead of the HF cache</td></tr>
+            <tr><td><code>MELD_DEVICE</code></td><td><code>auto</code></td><td><code>auto</code> / <code>cpu</code> / <code>cuda</code></td></tr>
+            <tr><td><code>MELD_BATCH_SIZE</code></td><td><code>4</code></td><td>Windows per forward pass</td></tr>
+            <tr><td><code>MELD_CHUNK_OVERLAP</code></td><td><code>128</code></td><td>Token overlap between windows</td></tr>
+            <tr><td><code>MELD_MAX_CHARS</code></td><td><code>400000</code></td><td>Largest accepted document</td></tr>
+            <tr><td><code>MELD_MIN_WORDS</code></td><td><code>100</code></td><td>Reliability floor for the warning</td></tr>
+            <tr><td><code>MELD_HISTORY_LIMIT</code></td><td><code>500</code></td><td>Rows kept before trimming</td></tr>
+            <tr><td><code>MELD_EAGER_LOAD</code></td><td><code>0</code></td><td>Load the checkpoint at startup</td></tr>
+            <tr><td><code>MELD_HOST</code> / <code>MELD_PORT</code></td><td><code>127.0.0.1</code> / <code>8000</code></td><td>Bind address</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CLI -->
+    <section id="cli">
+      <h2>CLI flags</h2>
+      <pre><code>python -m meld_gui --preload              # download and load at startup
+python -m meld_gui --device cpu          # force CPU
+python -m meld_gui --port 9000           # different port
+python -m meld_gui --no-browser          # do not open a browser window
+python -m meld_gui --model-dir ./meld    # use a local checkpoint folder
+python -m meld_gui --reload              # auto-reload on code changes</code></pre>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <pre class="tree"><code>meld_gui/
+├── config.py            Settings; every value overridable via MELD_* env vars
+├── app.py               FastAPI factory
+├── __main__.py          CLI entry point
+├── core/
+│   ├── model.py         Port of the released scoring head, extended to return
+│   │                    per-token / family / operator tensors
+│   ├── loader.py        Download + load lifecycle, threaded, progress for the UI
+│   ├── analyzer.py      Windowing, stitching, sentence aggregation, attribution
+│   ├── chunking.py      Token-window planning for long documents
+│   ├── segmentation.py  Sentence/paragraph splitting with character offsets
+│   ├── thresholds.py    Calibration table and verdict banding
+│   └── extract.py       Text extraction from txt / md / pdf / docx
+├── api/
+│   ├── routes.py        Every endpoint the frontend uses
+│   └── schemas.py       Pydantic request models
+├── services/
+│   ├── history.py       SQLite store (one table, no ORM)
+│   └── jobs.py          In-memory batch job registry
+└── web/                 Zero-build frontend: no npm, no bundler
+    ├── templates/index.html
+    └── static/{css/app.css, js/{api,utils,charts,app}.js}</code></pre>
+
+      <h3>Decisions worth knowing</h3>
+      <dl class="deflist">
+        <dt>The scoring maths is never re-derived</dt>
+        <dd><code>core/model.py</code> reproduces the model card's <code>score()</code>
+            exactly, and a test asserts parity to <code>1e-4</code>. Everything else reads
+            the intermediate tensors that computation already produces. If the upstream
+            checkpoint changes, that is the one file to update.</dd>
+        <dt>No frontend build step</dt>
+        <dd>Four plain <code>.js</code> files and one <code>.css</code>. Deliberate: it
+            keeps the app runnable years from now without a dead toolchain.</dd>
+        <dt>History is boring on purpose</dt>
+        <dd>One SQLite table, no ORM, no migration framework. It stores the full result
+            JSON alongside indexed summary columns, so re-opening a past run needs no
+            re-scoring.</dd>
+      </dl>
+    </section>
+
+    <!-- EXTENDING -->
+    <section id="extending">
+      <h2>Extending</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>To add…</th><th>Touch</th></tr></thead>
+          <tbody>
+            <tr><td>A new analysis output</td><td><code>core/analyzer.py</code>, then render it in <code>web/static/js/app.js</code></td></tr>
+            <tr><td>A new file format</td><td><code>core/extract.py</code> — add a suffix set and a branch</td></tr>
+            <tr><td>A new endpoint</td><td><code>api/routes.py</code> (appears in <code>/docs</code> automatically)</td></tr>
+            <tr><td>Different verdict bands</td><td><code>core/thresholds.py</code> → <code>_BANDS</code></td></tr>
+            <tr><td>Restyling</td><td><code>web/static/css/app.css</code> — the two <code>:root</code> blocks hold every colour</td></tr>
+            <tr><td>A new view</td><td>A <code>&lt;section class="view"&gt;</code> in <code>index.html</code> plus a <code>.nav-item</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TESTING -->
+    <section id="testing">
+      <h2>Testing</h2>
+      <pre><code>pip install pytest httpx
+
+pytest                    # all 53
+pytest -m "not model"     # 36 logic tests, no 1.6 GB download needed
+pytest -m model           # 17 integration tests against the real checkpoint</code></pre>
+      <p>The model-marked tests skip themselves automatically when the checkpoint is not
+      present, so a clean checkout stays testable. Coverage includes segmentation offsets,
+      window planning, threshold logic, extraction, every API endpoint, plus integration
+      tests asserting reference parity with the model card and that machine text outscores
+      human text.</p>
+    </section>
+
+    <!-- LIMITATIONS -->
+    <section id="limitations">
+      <h2>Limitations</h2>
+      <ul class="bullets">
+        <li><strong>English only.</strong> The model was trained and calibrated on English.</li>
+        <li><strong>Short text is noise.</strong> Below 100 words, scores run high
+            regardless of author.</li>
+        <li><strong>Non-native writing.</strong> Most detectors score non-native English
+            higher; MELD's calibration set may not match your population. This is the
+            single most common source of unfair flags.</li>
+        <li><strong>Formulaic prose.</strong> Documentation, boilerplate and legal text are
+            naturally low-variance and read as machine-like.</li>
+        <li><strong>Mixed authorship.</strong> AI-assisted human writing lands in the
+            inconclusive band — which is the honest answer, not a failure.</li>
+        <li><strong>No detector is a lie detector.</strong> There is no threshold at which
+            a score becomes evidence about a person.</li>
+      </ul>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <h2>FAQ</h2>
+      <details><summary>Does any of my text leave my machine?</summary>
+        <p>No. The only network request the app makes is downloading the checkpoint from
+        HuggingFace on first run. Analysis is local, and history is a SQLite file in
+        <code>data/</code>.</p></details>
+
+      <details><summary>Why is the probability 99% when the raw score barely cleared the cut-off?</summary>
+        <p>Because probability is <code>sigmoid(raw score)</code>, which saturates fast.
+        A raw score of +5 and +9 both read as "99-point-something percent". Use the margin
+        column instead — it is the number that carries information near the boundary.</p></details>
+
+      <details><summary>Can I run it without a GPU?</summary>
+        <p>Yes. Pass <code>--device cpu</code> or just let it auto-detect. Expect roughly
+        an order of magnitude slower, which for a single document is still a couple of
+        seconds.</p></details>
+
+      <details><summary>Where is the model stored?</summary>
+        <p>Your HuggingFace cache — typically <code>~/.cache/huggingface/hub</code> — so it
+        is shared with any other tool using the same checkpoint. Point
+        <code>MELD_MODEL_DIR</code> at a folder to override.</p></details>
+
+      <details><summary>My document is 40,000 words. Will it work?</summary>
+        <p>Yes, in overlapping windows. The default character cap is 400,000; raise
+        <code>MELD_MAX_CHARS</code> if you need more. Check the Windows tab — a long
+        document is often not uniform.</p></details>
+
+      <details><summary>A student says the flag is wrong. What now?</summary>
+        <p>Take that seriously. At 1% FPR you should <em>expect</em> false flags at a rate
+        of about one per hundred human documents, and higher for non-native writers. The
+        heatmap and per-window scores exist to support a conversation, not to close one.
+        A detector score is not evidence on its own.</p></details>
+
+      <details><summary>Can I change the verdict thresholds?</summary>
+        <p>The calibrated cut-offs come from the checkpoint and should not be invented.
+        The presentational bands are yours to adjust in
+        <code>core/thresholds.py</code> → <code>_BANDS</code>.</p></details>
+    </section>
+
+    <!-- PROVENANCE -->
+    <section id="provenance">
+      <h2>Provenance</h2>
+      <p>
+        This project was <strong>vibe coded</strong> — generated end to end by Claude
+        Opus 5 in Claude Code from a single prompt, including the architecture, the
+        interface design, the tests and the documentation you are reading. It has not had
+        a line-by-line human review.
+      </p>
+      <p>So that the trust level is clear:</p>
+      <ul class="bullets">
+        <li><strong>Verified.</strong> 53 tests pass, 17 against the real checkpoint on
+            GPU. <code>core/model.py</code> is asserted equal to the model card's own
+            scorer to <code>1e-4</code>, so scores cannot silently drift from upstream.
+            Sentence offsets are asserted to reconstruct the source exactly. The interface
+            was driven in a browser and the main flows confirmed working.</li>
+        <li><strong>Not verified.</strong> Detection accuracy itself — that belongs to the
+            upstream model, not this wrapper. The family and operator attribution, which
+            is derived from prototypes upstream does not document as calibrated outputs.
+            Behaviour on inputs beyond those the tests cover.</li>
+      </ul>
+      <p>Treat it as a tested starting point rather than audited code. Read
+      <code>core/model.py</code> and <code>core/analyzer.py</code> first if you intend to
+      rely on the numbers.</p>
+    </section>
+
+    <!-- LICENCE -->
+    <section id="licence">
+      <h2>Licence</h2>
+      <p><strong>Apache License 2.0.</strong> Two attributions matter:</p>
+      <ul class="bullets">
+        <li><code>meld_gui/core/model.py</code> ports the reference scoring head from the
+            MELD model card, which is MIT licensed. MIT is compatible with Apache-2.0, and
+            that notice is retained in <code>NOTICE</code> and the file's own header.</li>
+        <li>The model weights are <strong>not redistributed</strong> here. They are
+            downloaded from the HuggingFace Hub at runtime and remain under their own MIT
+            licence.</li>
+      </ul>
+      <p>If you redistribute this project, Apache-2.0 §4 requires you to carry both the
+      <code>LICENSE</code> and <code>NOTICE</code> files with it.</p>
+    </section>
+
+    <footer class="foot">
+      <p>MELD GUI — documentation. Built with no frameworks, because it should still open
+      in ten years.</p>
+      <p class="foot-links">
+        <a href="https://github.com/YOUR-USERNAME/meld-gui" target="_blank" rel="noopener">Repository</a>
+        <a href="https://huggingface.co/anon-review-meld-2026/meld" target="_blank" rel="noopener">Model card</a>
+        <a href="#top">Back to top</a>
+      </p>
+    </footer>
+
+  </main>
+</div>
+
+<script src="assets/js/docs.js"></script>
+</body>
+</html>
