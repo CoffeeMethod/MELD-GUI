@@ -5,8 +5,8 @@ document? This module keeps that answer bit-for-bit identical while extracting
 the intermediate signal the checkpoint already computes, so the UI can also
 show *where* the evidence sits and *what* it looks like:
 
-* per-token margins, stitched across overlapping windows and mapped back to
-  character offsets in the original string;
+* per-token margins, stitched across windows and mapped back to character
+  offsets in the scored text (the canonical form, for v7+ checkpoints);
 * the same top-rho pooling applied per sentence, for the heatmap;
 * family and operator attribution, read off the prototype logits.
 
@@ -25,6 +25,7 @@ from typing import Any, Iterable, Sequence
 import torch
 
 from ..config import settings
+from .canonical import canonicalize
 from .chunking import Window, plan_windows
 from .loader import ModelNotReady, manager
 from .model import Meld
@@ -174,6 +175,16 @@ class Analyzer:
 
         started = time.perf_counter()
 
+        # v7+ checkpoints publish a scoring contract: canonical input, windows
+        # without overlap and a hard token cap. Older ones have none and keep
+        # the original behaviour.
+        contract = model.cfg.get("scoring_contract") or {}
+        canonical = bool(contract)
+        if canonical:
+            text = canonicalize(text)
+            if not text.strip():
+                raise ValueError("The document has no scoreable text after cleanup.")
+
         # verbose=False: the tokenizer warns whenever a sequence exceeds the
         # backbone's max length, but we never feed it whole -- it is cut into
         # windows below.
@@ -189,7 +200,17 @@ class Analyzer:
         if not token_ids:
             raise ValueError("The document produced no tokens.")
 
-        overlap = options.overlap if options.overlap is not None else settings.chunk_overlap
+        cap = int(model.cfg.get("cap_tokens") or 0)
+        truncated = bool(cap) and len(token_ids) > cap
+        if truncated:
+            token_ids, offsets = token_ids[:cap], offsets[:cap]
+
+        if options.overlap is not None:
+            overlap = options.overlap
+        elif contract.get("window_overlap") == "none":
+            overlap = 0
+        else:
+            overlap = settings.chunk_overlap
         batch_size = options.batch_size or settings.batch_size
         windows = plan_windows(token_ids, model.max_length, overlap)
         chunk_scores = self._forward_windows(
@@ -222,7 +243,8 @@ class Analyzer:
             "tokens": {
                 "count": len(token_ids),
                 "windows": len(windows),
-                "truncated": False,
+                "truncated": truncated,
+                "cap": cap or None,
                 "max_length": model.max_length,
                 "rho": rho,
                 "pooled_tokens": int(min(k, per_token.numel())),
@@ -232,7 +254,7 @@ class Analyzer:
                 "tokens_per_second": round(len(token_ids) / elapsed, 1) if elapsed else 0.0,
                 "device": device,
             },
-            "warnings": self._warnings(stats, len(windows)),
+            "warnings": self._warnings(stats, len(windows), overlap > 0, truncated, cap),
             "thresholds": {
                 "all": {
                     row["key"]: row["thresholds"] for row in thresholds.describe()
@@ -240,6 +262,10 @@ class Analyzer:
                 "selected": decision.threshold,
             },
         }
+
+        if canonical:
+            # Offsets index the canonical text, so the UI draws on this copy.
+            result["scored_text"] = text
 
         if options.include_attribution:
             result["attribution"] = {
@@ -284,7 +310,13 @@ class Analyzer:
 
     # --------------------------------------------------------------- helpers
     @staticmethod
-    def _warnings(stats: dict[str, Any], n_windows: int) -> list[dict[str, str]]:
+    def _warnings(
+        stats: dict[str, Any],
+        n_windows: int,
+        overlapping: bool = True,
+        truncated: bool = False,
+        cap: int = 0,
+    ) -> list[dict[str, str]]:
         out: list[dict[str, str]] = []
         words = int(stats["words"])
         if words < settings.min_words:
@@ -314,8 +346,18 @@ class Analyzer:
                     "level": "info",
                     "message": (
                         f"Document exceeds the {2048}-token context and was scored in "
-                        f"{n_windows} overlapping windows. Per-window scores are in the "
-                        "Windows tab."
+                        f"{n_windows} {'overlapping ' if overlapping else ''}windows. "
+                        "Per-window scores are in the Windows tab."
+                    ),
+                }
+            )
+        if truncated:
+            out.append(
+                {
+                    "level": "warning",
+                    "message": (
+                        f"Only the first {cap:,} tokens were scored; this checkpoint "
+                        "caps input at that length."
                     ),
                 }
             )

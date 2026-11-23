@@ -1,6 +1,6 @@
 # Core inference
 torch>=2.2
-transformers>=4.48        # ModernBERT/Ettin backbone support landed in 4.48
+transformers>=5.0         # v83 tokenizer config uses the v5 TokenizersBackend class
 safetensors>=0.4
 huggingface_hub>=0.23
 

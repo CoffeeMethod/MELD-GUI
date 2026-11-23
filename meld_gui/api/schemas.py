@@ -48,6 +48,17 @@ class LoadRequest(BaseModel):
     device: str | None = Field(
         None, description="Torch device: cuda, cpu, or null for automatic."
     )
+    hf_token: str | None = Field(
+        None,
+        repr=False,
+        description="Hugging Face read token for the gated repo. Used for this "
+        "download only and never stored.",
+    )
+    update: bool = Field(
+        False,
+        description="Check Hugging Face for the newest revision and download "
+        "it, instead of loading the cached copy.",
+    )
 
 
 class ErrorResponse(BaseModel):

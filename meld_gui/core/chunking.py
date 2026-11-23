@@ -1,9 +1,10 @@
 """Token-window planning for documents longer than the model's context.
 
 MELD reads at most ``max_length`` (2048) tokens. Longer documents are cut into
-overlapping windows. The overlap exists so that no sentence sits permanently at
-a window edge with only half its context; when two windows both cover a token,
-the scorer keeps the copy that sat furthest from an edge.
+windows. v7+ checkpoints require consecutive windows (``overlap=0``). For older
+ones an overlap keeps sentences from sitting permanently at a window edge with
+only half their context; when two windows both cover a token, the scorer keeps
+the copy that sat furthest from an edge.
 """
 
 from __future__ import annotations

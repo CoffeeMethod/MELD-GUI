@@ -1,6 +1,6 @@
 """API and end-to-end tests.
 
-Tests that need the 1.6 GB checkpoint are marked ``model`` and skip themselves
+Tests that need the ~4 GB checkpoint are marked ``model`` and skip themselves
 when it is not present, so the suite stays runnable on a clean checkout:
 
     pytest                    # everything available
@@ -69,8 +69,15 @@ class TestMeta:
 
     def test_config_lists_strata_and_fpr_levels(self, client):
         body = client.get("/api/config").json()
-        keys = {s["key"] for s in body["strata"]}
-        assert {"overall", "academic", "web", "wiki", "creative", "reviews"} <= keys
+        # Strata follow the checkpoint in use; they changed between releases.
+        from meld_gui.core.loader import manager
+
+        keys = [s["key"] for s in body["strata"]]
+        assert keys[0] == "overall"
+        table = manager.threshold_table()
+        if table is not None:
+            assert keys == table.strata
+        assert all(s["label"] for s in body["strata"])
         assert [f["key"] for f in body["fpr_levels"]] == ["fpr_0.01", "fpr_0.05", "fpr_0.1"]
         assert body["min_words"] == 100
 
@@ -130,15 +137,29 @@ class TestAnalysis:
 
     def test_sentence_offsets_map_back_to_the_source(self, client, loaded_model):
         body = client.post("/api/analyze", json={"text": MACHINE, "save_history": False}).json()
+        # v7+ checkpoints score cleaned text; offsets index whatever was scored.
+        source = body.get("scored_text", MACHINE)
         for row in body["sentences"]:
-            assert MACHINE[row["start"] : row["end"]].strip() == row["text"]
+            assert source[row["start"] : row["end"]].strip() == row["text"]
 
     def test_token_offsets_are_ordered_and_in_range(self, client, loaded_model):
         body = client.post("/api/analyze", json={"text": MACHINE, "save_history": False}).json()
+        source = body.get("scored_text", MACHINE)
         offsets = body["token_detail"]["offsets"]
         assert len(offsets) == len(body["token_detail"]["scores"])
-        assert all(0 <= a <= b <= len(MACHINE) for a, b in offsets)
+        assert all(0 <= a <= b <= len(source) for a, b in offsets)
         assert offsets == sorted(offsets)
+
+    def test_long_document_matches_reference_across_windows(self, loaded_model):
+        """Multi-window pooling must match the reference scorer too."""
+        from meld_gui.core.analyzer import AnalysisOptions, analyze_text
+
+        model, tokenizer, _, device = loaded_model.require()
+        long_text = "\n\n".join([MACHINE] * 25)
+        _, reference = model.score([long_text], tokenizer, device)
+        ours = analyze_text(long_text, AnalysisOptions(include_tokens=False))
+        assert ours["tokens"]["windows"] > 1
+        assert ours["decision"]["score"] == pytest.approx(reference[0], abs=1e-4)
 
     def test_attribution_probabilities_sum_to_one(self, client, loaded_model):
         body = client.post("/api/analyze", json={"text": MACHINE, "save_history": False}).json()
@@ -149,9 +170,15 @@ class TestAnalysis:
     def test_stratum_changes_the_threshold(self, client, loaded_model):
         base = {"text": MACHINE, "save_history": False}
         overall = client.post("/api/analyze", json={**base, "stratum": "overall"}).json()
-        academic = client.post("/api/analyze", json={**base, "stratum": "academic"}).json()
-        assert overall["decision"]["score"] == pytest.approx(academic["decision"]["score"])
-        assert overall["decision"]["threshold"] != academic["decision"]["threshold"]
+        other = next(
+            s["key"] for s in loaded_model.threshold_table().options()
+            if s["key"] != "overall"
+            and loaded_model.threshold_table().threshold(s["key"])
+            != loaded_model.threshold_table().threshold("overall")
+        )
+        typed = client.post("/api/analyze", json={**base, "stratum": other}).json()
+        assert overall["decision"]["score"] == pytest.approx(typed["decision"]["score"])
+        assert overall["decision"]["threshold"] != typed["decision"]["threshold"]
 
     def test_looser_fpr_lowers_the_bar(self, client, loaded_model):
         base = {"text": MACHINE, "save_history": False}
@@ -175,7 +202,7 @@ class TestAnalysis:
 
     def test_file_upload_round_trip(self, client, loaded_model):
         files = {"file": ("essay.txt", io.BytesIO(MACHINE.encode()), "text/plain")}
-        response = client.post("/api/analyze/file", files=files, data={"stratum": "academic"})
+        response = client.post("/api/analyze/file", files=files, data={"stratum": "overall"})
         assert response.status_code == 200
         assert response.json()["source_file"]["name"] == "essay.txt"
 
