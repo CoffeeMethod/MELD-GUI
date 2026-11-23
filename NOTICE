@@ -10,12 +10,14 @@ Third-party attributions
 
 1. MELD reference scoring implementation
 
-   The scoring head implemented in meld_gui/core/model.py is a port of the
-   reference implementation published on the MELD model card at
+   The scoring head implemented in meld_gui/core/model.py and the input
+   canonicalization in meld_gui/core/canonical.py are ports of the reference
+   implementation (meld.py) published in the MELD repository at
    https://huggingface.co/anon-review-meld-2026/meld, which is distributed under
    the MIT License. The maths of the scoring head (style projection, human
-   anchors, family prototypes and the top-rho document pooling rule) follows that
-   reference so results remain identical to the published model.
+   anchors, generator and family prototypes and the top-rho document pooling
+   rule) and the canonicalization follow that reference so results remain
+   identical to the published model.
 
    The MIT License text covering that portion:
 

@@ -1,8 +1,9 @@
 """Calibrated decision thresholds.
 
 MELD's raw score is not calibrated against 0.5.  The checkpoint ships
-``score_offsets``: for the overall validation set and for six document strata,
-the raw score below which 99% / 95% / 90% of *human* texts fell.  Flagging is
+``score_offsets``: for the overall validation set and for each document stratum
+(six in v5, sixteen in v83), the raw score below which 99% / 95% / 90% of *human*
+texts fell.  Flagging is
 therefore a choice of acceptable false-positive rate, not a fixed cutoff.
 """
 
@@ -24,6 +25,22 @@ STRATA_LABELS: dict[str, str] = {
     "reviews": "Reviews",
     "web": "Web prose",
     "wiki": "Encyclopedic",
+    # v7+ checkpoints
+    "business_finance": "Business / finance",
+    "consumer_opinion": "Consumer opinion",
+    "correspondence": "Correspondence",
+    "dialogue_transcript": "Dialogue / transcript",
+    "general_web": "General web",
+    "government_policy": "Government / policy",
+    "legal": "Legal",
+    "news": "News",
+    "peer_review": "Peer review",
+    "poetry_lyrics": "Poetry / lyrics",
+    "reference_howto": "Reference / how-to",
+    "scientific_paper": "Scientific paper",
+    "social_qa_chat": "Social / Q&A / chat",
+    "student_essay": "Student essay",
+    "technical_docs": "Technical docs",
 }
 
 STRATA_HINTS: dict[str, str] = {
@@ -34,7 +51,30 @@ STRATA_HINTS: dict[str, str] = {
     "reviews": "Product, film and service reviews.",
     "web": "Blog posts, news, marketing and general web copy.",
     "wiki": "Encyclopedic and reference-style articles.",
+    "business_finance": "Reports, filings, memos and financial commentary.",
+    "consumer_opinion": "Product, film and service reviews and opinion pieces.",
+    "correspondence": "Emails, letters and other messages.",
+    "dialogue_transcript": "Interviews, scripts and meeting transcripts.",
+    "general_web": "Blog posts, marketing and general web copy.",
+    "government_policy": "Policy documents, regulations and public-sector text.",
+    "legal": "Contracts, judgments and legal analysis.",
+    "news": "News articles and reporting.",
+    "peer_review": "Reviews of academic papers.",
+    "poetry_lyrics": "Poems and song lyrics.",
+    "reference_howto": "Encyclopedic articles, guides and how-tos.",
+    "scientific_paper": "Research papers and abstracts.",
+    "social_qa_chat": "Forum posts, comments, Q&A and chat.",
+    "student_essay": "Coursework and student essays.",
+    "technical_docs": "Software and technical documentation.",
 }
+
+def stratum_label(key: str) -> str:
+    """Readable name for a stratum key, including ones added upstream later."""
+    if key in STRATA_LABELS:
+        return STRATA_LABELS[key]
+    text = key.replace("_", " ")
+    return text[:1].upper() + text[1:]
+
 
 Verdict = Literal["human", "uncertain", "likely_ai", "ai"]
 
@@ -93,7 +133,12 @@ class ThresholdTable:
     def __init__(self, score_offsets: dict[str, Any]) -> None:
         self._raw = score_offsets
         self._overall = score_offsets[OVERALL]
-        self._strata = score_offsets.get("strata", {})
+        # Keep only well-formed strata; newer checkpoints also ship extra keys.
+        self._strata = {
+            k: v
+            for k, v in (score_offsets.get("strata") or {}).items()
+            if isinstance(v, dict) and all(f in v for f in FPR_KEYS)
+        }
 
     @property
     def strata(self) -> list[str]:
@@ -114,6 +159,13 @@ class ThresholdTable:
             raise KeyError(f"unknown fpr level {fpr!r}")
         return float(self.entry(stratum)[fpr])
 
+    def options(self) -> list[dict[str, str]]:
+        """Document-type choices for the UI's dropdowns."""
+        return [
+            {"key": k, "label": stratum_label(k), "hint": STRATA_HINTS.get(k, "")}
+            for k in self.strata
+        ]
+
     def describe(self) -> list[dict[str, Any]]:
         """Everything the UI needs to render the calibration table."""
         rows = []
@@ -122,7 +174,7 @@ class ThresholdTable:
             rows.append(
                 {
                     "key": stratum,
-                    "label": STRATA_LABELS.get(stratum, stratum),
+                    "label": stratum_label(stratum),
                     "hint": STRATA_HINTS.get(stratum, ""),
                     "n": int(entry.get("n", self._raw.get("n_human", 0))),
                     "thresholds": {k: float(entry[k]) for k in FPR_KEYS},
@@ -153,7 +205,7 @@ class ThresholdTable:
             verdict=verdict,
             verdict_label=VERDICT_LABELS[verdict],
             stratum=stratum,
-            stratum_label=STRATA_LABELS.get(stratum, stratum),
+            stratum_label=stratum_label(stratum),
             fpr=fpr,
             fpr_pct=float(fpr.split("_")[1]) * 100.0,
         )

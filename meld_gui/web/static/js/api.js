@@ -44,7 +44,7 @@
 
     // model
     modelStatus: () => request('/api/model'),
-    loadModel:   (device) => request('/api/model/load', { method: 'POST', body: { device: device || null } }),
+    loadModel:   (device, hfToken, update) => request('/api/model/load', { method: 'POST', body: { device: device || null, hf_token: hfToken || null, update: !!update } }),
     unloadModel: () => request('/api/model/unload', { method: 'POST' }),
 
     // analysis

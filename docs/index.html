@@ -90,7 +90,8 @@
       <h1>Detect AI-generated text,<br>and see <em>why</em>.</h1>
       <p class="lede">
         A web interface for <a href="https://huggingface.co/anon-review-meld-2026/meld" target="_blank" rel="noopener">MELD</a>,
-        a 395M-parameter encoder that scores English documents for machine authorship.
+        a 1B-parameter encoder that scores English documents for machine authorship.
+        Built for the current checkpoint, MELD v83.
         It runs entirely on your machine — no text leaves it.
       </p>
       <div class="hero-actions">
@@ -98,10 +99,10 @@
         <a class="btn btn-ghost" href="#interpreting">How to read a score</a>
       </div>
       <div class="hero-stats">
-        <div><strong>395M</strong><span>parameters</span></div>
+        <div><strong>1.03B</strong><span>parameters</span></div>
         <div><strong>2,048</strong><span>token context</span></div>
-        <div><strong>12,461</strong><span>human docs calibrated</span></div>
-        <div><strong>~3,900</strong><span>tokens/sec on GPU</span></div>
+        <div><strong>47,710</strong><span>human docs calibrated</span></div>
+        <div><strong>~2,100</strong><span>tokens/sec on GPU</span></div>
       </div>
     </section>
 
@@ -111,7 +112,7 @@
       <p>
         The released MELD checkpoint ships a short scorer that answers one question:
         what is <code>P(AI)</code> for this document? That number on its own is hard to
-        act on. This app keeps that computation bit-for-bit identical and adds the
+        act on. This app keeps that computation identical and adds the
         context needed to actually read it.
       </p>
 
@@ -128,8 +129,8 @@
         </div>
         <div class="card">
           <h3>Any length</h3>
-          <p>Documents past 2,048 tokens are scored in overlapping windows and pooled,
-          with each window reported separately.</p>
+          <p>Documents past 2,048 tokens are scored in consecutive windows and pooled
+          once, with each window reported separately.</p>
         </div>
         <div class="card">
           <h3>Scriptable</h3>
@@ -227,7 +228,8 @@ pytest                   # all 53, including live-model integration</code></pre>
     <section id="thresholds">
       <h2>Thresholds &amp; false-positive rate</h2>
       <p>
-        The checkpoint was calibrated on 12,461 human documents. It ships, for each genre,
+        The v83 checkpoint was calibrated on 47,710 human documents across 16 document
+        types. It ships, for each type,
         the raw score below which 99% / 95% / 90% of that genuine human writing fell.
         Choosing <strong>1% FPR</strong> means roughly one human document in a hundred
         <em>of that genre</em> would be wrongly flagged.
@@ -239,21 +241,32 @@ pytest                   # all 53, including live-model integration</code></pre>
         <table class="num">
           <thead><tr><th>Document type</th><th>1% FPR</th><th>5% FPR</th><th>10% FPR</th><th>Calibration n</th></tr></thead>
           <tbody>
-            <tr><td>General / mixed</td><td>+1.92</td><td>−0.47</td><td>−1.26</td><td>12,461</td></tr>
-            <tr><td>Academic writing</td><td>+1.21</td><td>−1.15</td><td>−1.44</td><td>1,654</td></tr>
-            <tr><td>Creative writing</td><td>+2.39</td><td>+0.44</td><td>−0.61</td><td>472</td></tr>
-            <tr><td>Q&amp;A / social</td><td>+2.62</td><td>+1.35</td><td>+0.19</td><td>1,009</td></tr>
-            <tr><td>Reviews</td><td>+2.80</td><td>+0.80</td><td>−0.13</td><td>443</td></tr>
-            <tr><td>Web prose</td><td>+1.43</td><td>−1.03</td><td>−1.43</td><td>8,028</td></tr>
-            <tr><td>Encyclopedic</td><td>+1.91</td><td>−0.63</td><td>−1.35</td><td>415</td></tr>
+            <tr><td>General / mixed</td><td>+3.92</td><td>+2.30</td><td>+0.66</td><td>47,710</td></tr>
+            <tr><td>Business / finance</td><td>−2.51</td><td>−4.87</td><td>−5.84</td><td>3,000</td></tr>
+            <tr><td>Consumer opinion</td><td>+2.31</td><td>−0.52</td><td>−1.94</td><td>3,000</td></tr>
+            <tr><td>Correspondence</td><td>+3.92</td><td>+2.30</td><td>+0.66</td><td>2,999</td></tr>
+            <tr><td>Creative writing</td><td>−0.19</td><td>−2.26</td><td>−3.42</td><td>3,000</td></tr>
+            <tr><td>Dialogue / transcript</td><td>−1.96</td><td>−4.66</td><td>−5.63</td><td>3,000</td></tr>
+            <tr><td>General web</td><td>+1.11</td><td>−2.21</td><td>−3.72</td><td>3,000</td></tr>
+            <tr><td>Government / policy</td><td>−3.56</td><td>−6.00</td><td>−6.61</td><td>3,000</td></tr>
+            <tr><td>Legal</td><td>−1.21</td><td>−4.42</td><td>−5.51</td><td>3,000</td></tr>
+            <tr><td>News</td><td>+1.73</td><td>−1.59</td><td>−3.09</td><td>3,000</td></tr>
+            <tr><td>Peer review</td><td>−2.26</td><td>−5.00</td><td>−6.01</td><td>2,981</td></tr>
+            <tr><td>Poetry / lyrics</td><td>+1.85</td><td>−2.38</td><td>−3.93</td><td>2,887</td></tr>
+            <tr><td>Reference / how-to</td><td>+0.36</td><td>−2.48</td><td>−3.56</td><td>2,999</td></tr>
+            <tr><td>Scientific paper</td><td>−0.82</td><td>−3.56</td><td>−4.74</td><td>2,999</td></tr>
+            <tr><td>Social / Q&amp;A / chat</td><td>+3.83</td><td>+0.18</td><td>−1.65</td><td>2,974</td></tr>
+            <tr><td>Student essay</td><td>+1.38</td><td>−1.87</td><td>−3.27</td><td>2,871</td></tr>
+            <tr><td>Technical docs</td><td>−2.10</td><td>−4.72</td><td>−5.71</td><td>3,000</td></tr>
           </tbody>
         </table>
       </div>
 
       <p>
-        A raw score of <code>+1.6</code> is <em>flagged</em> as academic writing and
-        <em>cleared</em> as general prose. Same document, same model, different question
-        being asked.
+        A raw score of <code>+2.0</code> is <em>flagged</em> as a student essay and
+        <em>cleared</em> as general / mixed text. Same document, same model, different
+        question being asked. The app reads this table from the loaded checkpoint, so
+        the Document type list always matches the model.
       </p>
 
       <div class="callout callout-info">
@@ -288,17 +301,23 @@ pytest                   # all 53, including live-model integration</code></pre>
     <!-- LONG DOCUMENTS -->
     <section id="long-documents">
       <h2>Long documents</h2>
-      <p>MELD reads 2,048 tokens at a time. Longer documents are handled like this:</p>
+      <p>MELD reads 2,048 tokens at a time. The v83 checkpoint ships a scoring contract,
+      and the app follows it:</p>
       <ol class="steps">
-        <li><strong>Window.</strong> The token stream is cut into overlapping windows
-            (2,046 content tokens, 128 overlap by default).</li>
+        <li><strong>Clean.</strong> Look-alike characters are folded, invisible characters
+            and markdown removed and em dashes rewritten, as in the reference
+            <code>meld.py</code>. The heatmap shows this cleaned text.</li>
+        <li><strong>Cap.</strong> Only the first 16,384 tokens (roughly 12,000 words) are
+            scored; the app warns when it cuts a document short.</li>
+        <li><strong>Window.</strong> The token stream is cut into consecutive windows of
+            2,046 content tokens, with no overlap.</li>
         <li><strong>Score.</strong> Windows are batched through the model.</li>
-        <li><strong>Stitch.</strong> Where two windows cover the same token, the copy that
-            sat <em>furthest from a window edge</em> wins — it was scored with the most
-            context on both sides.</li>
-        <li><strong>Pool.</strong> The released top-25% rule is then applied across the
-            whole document, not per window.</li>
+        <li><strong>Pool.</strong> The released top-25% rule is then applied once across
+            the whole document, not per window.</li>
       </ol>
+      <p>Older v5 checkpoints have no contract. For those the app skips the cleanup and
+      the cap and uses overlapping windows (128 tokens by default), keeping each token's
+      score from the window where it sat furthest from an edge.</p>
       <p>The <strong>Windows</strong> tab shows each window's own score, so you can see
       whether a long document is uniformly machine-like or only in places.</p>
     </section>
@@ -307,21 +326,20 @@ pytest                   # all 53, including live-model integration</code></pre>
     <section id="attribution">
       <h2>Attribution</h2>
       <p>
-        The checkpoint carries 11 model-family prototypes and 9 edit-operation prototypes.
-        The Attribution tab reads the softmax over those prototypes for the tokens that
-        actually drove the score.
+        The checkpoint carries 60 generator prototypes, grouped into 7 model families,
+        and 6 edit-operation prototypes. A family's score is that of its closest member
+        generator. The Attribution tab reads the softmax over families and operations for
+        the tokens that actually drove the score.
       </p>
       <div class="chips">
-        <span class="chip">gpt</span><span class="chip">llama</span><span class="chip">mistral</span>
-        <span class="chip">mpt</span><span class="chip">cohere</span><span class="chip">google</span>
-        <span class="chip">anthropic</span><span class="chip">qwen</span><span class="chip">legacy_open</span>
-        <span class="chip">essay_ai</span><span class="chip">unknown_ai</span>
+        <span class="chip">openai_gpt</span><span class="chip">anthropic_claude</span>
+        <span class="chip">google_gemini_gemma</span><span class="chip">meta_llama</span>
+        <span class="chip">mistral</span><span class="chip">qwen</span><span class="chip">others</span>
       </div>
       <div class="chips">
-        <span class="chip alt">polish</span><span class="chip alt">paraphrase</span><span class="chip alt">academic</span>
-        <span class="chip alt">humanize</span><span class="chip alt">roundtrip</span><span class="chip alt">summarize</span>
-        <span class="chip alt">expand</span><span class="chip alt">generate_from_context</span>
-        <span class="chip alt">generate_from_abstract</span>
+        <span class="chip alt">generate</span><span class="chip alt">polish_formalize</span>
+        <span class="chip alt">paraphrase_rewrite</span><span class="chip alt">humanize_mimic</span>
+        <span class="chip alt">summarize</span><span class="chip alt">expand</span>
       </div>
       <div class="callout callout-warn">
         <strong>Indicative only.</strong> These prototypes ship in the checkpoint, but the
@@ -392,7 +410,7 @@ requests.post(f"{BASE}/api/model/load")          # once per server start
 
 r = requests.post(f"{BASE}/api/analyze", json={
     "text": open("essay.txt", encoding="utf-8").read(),
-    "stratum": "academic",       # match the genre being checked
+    "stratum": "student_essay",  # match the genre; see /api/config
     "fpr": "fpr_0.01",           # 1% false-positive rate
 }).json()
 
@@ -405,10 +423,12 @@ for s in sorted(r["sentences"], key=lambda s: -s["score"])[:3]:
 
       <h3>Response shape</h3>
       <pre><code>{
+  "scored_text": "the cleaned text all offsets refer to (v83)",
   "decision":    { "score", "probability", "threshold", "margin",
                    "flagged", "verdict", "verdict_label", "stratum", "fpr" },
   "statistics":  { "words", "sentences", "paragraphs", "type_token_ratio", ... },
-  "tokens":      { "count", "windows", "rho", "pooled_tokens", "max_length" },
+  "tokens":      { "count", "windows", "truncated", "cap", "rho",
+                   "pooled_tokens", "max_length" },
   "timing":      { "seconds", "tokens_per_second", "device" },
   "warnings":    [ { "level", "message" } ],
   "attribution": { "families": [...], "operations": [...], "note" },
@@ -420,7 +440,8 @@ for s in sorted(r["sentences"], key=lambda s: -s["score"])[:3]:
 
       <div class="callout callout-info">
         <strong>Offsets are exact.</strong> Every <code>start</code>/<code>end</code> pair
-        indexes into the string you submitted, so
+        indexes into <code>scored_text</code> (the cleaned text the model actually read),
+        or into the string you submitted when a checkpoint has no cleanup step, so
         <code>text[s["start"]:s["end"]]</code> reconstructs the sentence verbatim. A test
         asserts this.
       </div>
@@ -433,7 +454,7 @@ docs = [{"name": p.name, "text": p.read_text(encoding="utf-8")}
         for p in pathlib.Path("essays").glob("*.txt")]
 
 job = requests.post(f"{BASE}/api/batch",
-                    json={"documents": docs, "stratum": "academic"}).json()
+                    json={"documents": docs, "stratum": "student_essay"}).json()
 
 while True:
     status = requests.get(f"{BASE}/api/batch/{job['id']}").json()
@@ -460,7 +481,7 @@ for item in status["items"]:
             <tr><td><code>MELD_MODEL_DIR</code></td><td><em>unset</em></td><td>Local folder instead of the HF cache</td></tr>
             <tr><td><code>MELD_DEVICE</code></td><td><code>auto</code></td><td><code>auto</code> / <code>cpu</code> / <code>cuda</code></td></tr>
             <tr><td><code>MELD_BATCH_SIZE</code></td><td><code>4</code></td><td>Windows per forward pass</td></tr>
-            <tr><td><code>MELD_CHUNK_OVERLAP</code></td><td><code>128</code></td><td>Token overlap between windows</td></tr>
+            <tr><td><code>MELD_CHUNK_OVERLAP</code></td><td><code>128</code></td><td>Token overlap between windows (checkpoints without a scoring contract only)</td></tr>
             <tr><td><code>MELD_MAX_CHARS</code></td><td><code>400000</code></td><td>Largest accepted document</td></tr>
             <tr><td><code>MELD_MIN_WORDS</code></td><td><code>100</code></td><td>Reliability floor for the warning</td></tr>
             <tr><td><code>MELD_HISTORY_LIMIT</code></td><td><code>500</code></td><td>Rows kept before trimming</td></tr>
@@ -492,7 +513,8 @@ python -m meld_gui --reload              # auto-reload on code changes</code></p
 ├── core/
 │   ├── model.py         Port of the released scoring head, extended to return
 │   │                    per-token / family / operator tensors
-│   ├── loader.py        Download + load lifecycle, threaded, progress for the UI
+│   ├── canonical.py     Input cleanup from the reference meld.py (v7+ checkpoints)
+│   ├── loader.py        Download / update / load lifecycle, threaded, UI progress
 │   ├── analyzer.py      Windowing, stitching, sentence aggregation, attribution
 │   ├── chunking.py      Token-window planning for long documents
 │   ├── segmentation.py  Sentence/paragraph splitting with character offsets
@@ -601,9 +623,16 @@ pytest -m model           # 17 integration tests against the real checkpoint</co
         <code>MELD_MODEL_DIR</code> at a folder to override.</p></details>
 
       <details><summary>My document is 40,000 words. Will it work?</summary>
-        <p>Yes, in overlapping windows. The default character cap is 400,000; raise
-        <code>MELD_MAX_CHARS</code> if you need more. Check the Windows tab — a long
-        document is often not uniform.</p></details>
+        <p>Partly. The v83 checkpoint scores the first 16,384 tokens (roughly 12,000
+        words) and the app warns when it cuts a document short. To cover the rest, split
+        the document and score the parts. Check the Windows tab — a long document is
+        often not uniform.</p></details>
+
+      <details><summary>How do I get a newer model?</summary>
+        <p>Open <strong>Model</strong> and click <strong>Download latest</strong>. It asks
+        Hugging Face for the newest revision, downloads only the files that changed and
+        loads it. Older revisions stay in your cache. The <strong>Revision</strong> row
+        shows which one you are running.</p></details>
 
       <details><summary>A student says the flag is wrong. What now?</summary>
         <p>Take that seriously. At 1% FPR you should <em>expect</em> false flags at a rate

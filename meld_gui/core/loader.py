@@ -1,6 +1,6 @@
 """Model lifecycle: locate, download, load, unload.
 
-The GUI needs to stay responsive while a 1.6 GB checkpoint is fetched, so the
+The GUI needs to stay responsive while a ~4 GB checkpoint is fetched, so the
 download runs on a worker thread and publishes progress that the frontend polls.
 Loading is guarded by a lock: concurrent requests wait for one load rather than
 racing to build several copies of the model.
@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from ..config import REQUIRED_FILES, settings
+from ..config import OPTIONAL_FILES, REQUIRED_FILES, settings
 from .model import Meld
 from .thresholds import ThresholdTable
 
@@ -51,6 +51,60 @@ class ModelNotReady(RuntimeError):
     """Raised when inference is requested before the checkpoint is available."""
 
 
+class ModelLoadError(RuntimeError):
+    """A load failure with a stable ``code`` the UI can branch on."""
+
+    code = "error"
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        if code:
+            self.code = code
+
+
+def _hub_token() -> str | None:
+    """Token huggingface_hub would pick up on its own (env var or ``hf auth login``)."""
+    try:
+        from huggingface_hub import get_token
+
+        return get_token()
+    except Exception:
+        return None
+
+
+def translate_hub_error(exc: BaseException, token_sent: bool) -> ModelLoadError | None:
+    """Turn a Hub download failure into an actionable message, or ``None``.
+
+    The MELD repo is gated. Without a token, or with a token whose account has
+    not accepted the conditions, the Hub answers 401/403, which raw tracebacks
+    present as "Repository not found" or a bare HTTP error.
+    """
+    try:
+        from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+    except Exception:  # pragma: no cover - old huggingface_hub
+        return None
+
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    repo, url = settings.repo_id, settings.repo_url
+    if isinstance(exc, GatedRepoError) or status in (401, 403):
+        if token_sent:
+            return ModelLoadError(
+                f"Hugging Face refused access to {repo}. Open {url} while signed in "
+                "as the account that owns the token and accept the access "
+                "conditions. The token also needs read permission.",
+                "access_denied",
+            )
+        return ModelLoadError(
+            f"{repo} is gated. Open {url} and accept the conditions, create a read "
+            "token at https://huggingface.co/settings/tokens, then paste it below "
+            "or set MELD_HF_TOKEN.",
+            "token_required",
+        )
+    if isinstance(exc, RepositoryNotFoundError):
+        return ModelLoadError(f"Repository {repo} was not found on Hugging Face.", "not_found")
+    return None
+
+
 class ModelManager:
     """Owns the single :class:`Meld` instance shared by all requests."""
 
@@ -63,6 +117,7 @@ class ModelManager:
         self._model_path: Path | None = None
         self._load_seconds: float = 0.0
         self._error: str | None = None
+        self._error_code: str | None = None
         self.progress = Progress()
         self._worker: threading.Thread | None = None
 
@@ -89,7 +144,7 @@ class ModelManager:
             path = Path(
                 snapshot_download(
                     settings.repo_id,
-                    allow_patterns=list(REQUIRED_FILES),
+                    allow_patterns=[*REQUIRED_FILES, *OPTIONAL_FILES],
                     local_files_only=True,
                 )
             )
@@ -109,11 +164,18 @@ class ModelManager:
             "busy": self.is_busy,
             "downloaded": path is not None,
             "path": str(path) if path else None,
+            # Snapshot folders are named after the Hub commit they hold.
+            "revision": path.name[:12] if path and not settings.model_dir else None,
+            "can_update": not settings.model_dir,
             "repo_id": settings.repo_id,
             "device": self._device if self.is_loaded else settings.resolve_device(),
             "requested_device": settings.device,
             "load_seconds": round(self._load_seconds, 2),
             "error": self._error,
+            "error_code": self._error_code,
+            "needs_token": self._error_code in ("token_required", "access_denied"),
+            "token_from_env": bool(settings.hf_token or _hub_token()),
+            "repo_url": settings.repo_url,
             "progress": self.progress.as_dict(),
             "cuda_available": self._cuda_available(),
         }
@@ -146,6 +208,21 @@ class ModelManager:
         except Exception:
             return False
 
+    def threshold_table(self) -> ThresholdTable | None:
+        """Calibration of the loaded model, else of the cached checkpoint."""
+        if self._thresholds is not None:
+            return self._thresholds
+        path = self.local_path()
+        if path is None:
+            return None
+        try:
+            import json
+
+            with open(path / "meld_config.json", encoding="utf-8") as fh:
+                return ThresholdTable(json.load(fh)["score_offsets"])
+        except Exception:
+            return None
+
     # ------------------------------------------------------------ accessors
     def require(self) -> tuple[Meld, Any, ThresholdTable, str]:
         if self._model is None or self._tokenizer is None or self._thresholds is None:
@@ -156,44 +233,118 @@ class ModelManager:
         return self._model, self._tokenizer, self._thresholds, self._device
 
     # -------------------------------------------------------------- actions
-    def ensure_async(self, device: str | None = None) -> dict[str, Any]:
-        """Kick off download+load on a worker thread if not already running."""
+    def ensure_async(
+        self,
+        device: str | None = None,
+        hf_token: str | None = None,
+        update: bool = False,
+    ) -> dict[str, Any]:
+        """Kick off download+load on a worker thread if not already running.
+
+        ``hf_token`` is used for this download only. It travels as a thread
+        argument and is never stored on the manager, written to disk or logged.
+        ``update`` asks the Hub for the latest revision instead of trusting
+        whatever is already in the cache.
+        """
         with self._lock:
             if self.is_busy:
                 return self.progress.as_dict()
-            if self.is_loaded and (device is None or device == self._device):
+            if (
+                not update
+                and self.is_loaded
+                and (device is None or device == self._device)
+            ):
                 return self.progress.as_dict()
             self._error = None
+            self._error_code = None
             self.progress = Progress(
                 state="starting", message="Preparing...", started_at=time.time()
             )
             self._worker = threading.Thread(
                 target=self._run_load,
-                args=(device,),
+                args=(device, hf_token, update),
                 daemon=True,
                 name="meld-loader",
             )
             self._worker.start()
             return self.progress.as_dict()
 
-    def load_blocking(self, device: str | None = None) -> None:
-        """Synchronous load, for CLI use and tests."""
-        path = self.local_path()
+    def load_blocking(
+        self,
+        device: str | None = None,
+        hf_token: str | None = None,
+        update: bool = False,
+    ) -> None:
+        """Synchronous load, for CLI use and tests.
+
+        With ``update`` the cache is bypassed: the Hub is asked for its newest
+        revision and only files that changed are downloaded. A fixed
+        ``MELD_MODEL_DIR`` is never updated, since the app does not own it.
+        """
+        path = None if update and not settings.model_dir else self.local_path()
         if path is None:
-            path = self._download()
+            path = self._download(hf_token)
+        if (
+            update
+            and self.is_loaded
+            and path == self._model_path
+            and (device is None or device == self._device)
+        ):
+            self.progress.state = "ready"
+            self.progress.message = "Already on the latest version"
+            self.progress.finished_at = time.time()
+            return
         self._load(path, device)
 
-    def _run_load(self, device: str | None) -> None:
+    def _run_load(
+        self, device: str | None, hf_token: str | None = None, update: bool = False
+    ) -> None:
         try:
-            self.load_blocking(device)
+            self.load_blocking(device, hf_token, update)
         except Exception as exc:  # surfaced to the UI, never crashes the server
-            self._error = f"{type(exc).__name__}: {exc}"
+            if isinstance(exc, ModelLoadError):
+                self._error = str(exc)
+                self._error_code = exc.code
+            else:
+                self._error = f"{type(exc).__name__}: {exc}"
+                self._error_code = "error"
             self.progress.state = "error"
             self.progress.message = self._error
             self.progress.finished_at = time.time()
 
-    def _download(self) -> Path:
+    def _snapshot(self, token: str | None, **kwargs: Any) -> Path:
+        """``snapshot_download`` with friendly errors and a completeness check."""
         from huggingface_hub import snapshot_download
+
+        # An empty token must become None so huggingface_hub still falls back to
+        # HF_TOKEN or a saved ``hf auth login``.
+        token = token or None
+        try:
+            path = Path(
+                snapshot_download(
+                    settings.repo_id,
+                    allow_patterns=[*REQUIRED_FILES, *OPTIONAL_FILES],
+                    token=token,
+                    **kwargs,
+                )
+            )
+        except Exception as exc:
+            friendly = translate_hub_error(exc, bool(token or _hub_token()))
+            if friendly is None:
+                raise
+            raise friendly from None
+
+        missing = [f for f in REQUIRED_FILES if not (path / f).exists()]
+        if missing:
+            raise ModelLoadError(
+                f"{settings.repo_id} no longer contains: {', '.join(missing)}. "
+                "The upstream repo layout changed; update MELD GUI.",
+                "incompatible",
+            )
+        return path
+
+    def _download(self, hf_token: str | None = None) -> Path:
+        token = hf_token or settings.hf_token or None
 
         self.progress.state = "downloading"
         self.progress.message = f"Downloading {settings.repo_id}"
@@ -207,9 +358,7 @@ class ModelManager:
             _tqdm = None
 
         if _tqdm is None:
-            return Path(
-                snapshot_download(settings.repo_id, allow_patterns=list(REQUIRED_FILES))
-            )
+            return self._snapshot(token)
 
         class _UiTqdm(_tqdm):  # type: ignore[misc,valid-type]
             def __init__(self, *a: Any, **kw: Any) -> None:
@@ -224,13 +373,7 @@ class ModelManager:
                     progress.total = int(self.total or 0)
                 return out
 
-        return Path(
-            snapshot_download(
-                settings.repo_id,
-                allow_patterns=list(REQUIRED_FILES),
-                tqdm_class=_UiTqdm,
-            )
-        )
+        return self._snapshot(token, tqdm_class=_UiTqdm)
 
     def _load(self, path: Path, device: str | None) -> None:
         self.progress.state = "loading"
@@ -243,7 +386,19 @@ class ModelManager:
 
         from transformers import AutoTokenizer
 
-        model = Meld(path).to(target)
+        try:
+            model = Meld(path).to(target)
+        except RuntimeError as exc:
+            text = str(exc)
+            if any(k in text for k in ("size mismatch", "Missing key", "Unexpected key")):
+                raise ModelLoadError(
+                    f"The checkpoint in {path} does not match this app's scoring head. "
+                    "The Hugging Face repo was probably updated. Delete that folder so "
+                    "it downloads again, or update MELD GUI. "
+                    f"({text.splitlines()[0][:160]})",
+                    "incompatible",
+                ) from exc
+            raise
         tokenizer = AutoTokenizer.from_pretrained(str(path))
 
         with self._lock:

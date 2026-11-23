@@ -17,7 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "torch>=2.2",
-    "transformers>=4.48",
+    "transformers>=5.0",
     "safetensors>=0.4",
     "huggingface_hub>=0.23",
     "fastapi>=0.110",
@@ -45,6 +45,6 @@ meld_gui = ["web/templates/*.html", "web/static/css/*.css", "web/static/js/*.js"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "model: requires the MELD checkpoint to be downloaded (~1.6 GB)",
+    "model: requires the MELD checkpoint to be downloaded (~4 GB)",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]

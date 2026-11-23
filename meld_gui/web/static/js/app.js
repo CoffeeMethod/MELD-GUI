@@ -97,15 +97,28 @@
   }
 
   /* ================================================================ selects */
-  function populateSelects() {
-    const strata = State.config.strata;
-    const fprs = State.config.fpr_levels;
-
+  function fillStrata(strata) {
     ['#selStratum', '#batchStratum', '#cmpStratum'].forEach(function (sel) {
       const node = $(sel);
+      const keep = node.value;
       node.innerHTML = '';
       strata.forEach((s) => node.appendChild(el('option', { value: s.key, text: s.label })));
+      if (strata.some((s) => s.key === keep)) node.value = keep;
     });
+  }
+
+  // Strata differ between checkpoint releases, so reload them once a model is in.
+  async function refreshStrata() {
+    try {
+      State.config = await window.API.config();
+      fillStrata(State.config.strata);
+      updateStrataHint();
+    } catch (err) { /* keep the current list */ }
+  }
+
+  function populateSelects() {
+    const fprs = State.config.fpr_levels;
+    fillStrata(State.config.strata);
     ['#selFpr', '#batchFpr', '#cmpFpr'].forEach(function (sel) {
       const node = $(sel);
       node.innerHTML = '';
@@ -343,7 +356,7 @@
   /* ------------------------------------------------------------- heatmap -- */
   function renderHeatmap(result) {
     const host = $('#heatmap');
-    const text = State.text || '';
+    const text = result.scored_text || State.text || '';
     const threshold = result.decision.threshold;
     const tokenMode = $('#chkTokenHeat').checked;
 
@@ -439,7 +452,7 @@
     const threshold = result.decision.threshold;
     window.Charts.windowChart($('#windowChart'), result.chunks, threshold);
 
-    const text = State.text || '';
+    const text = result.scored_text || State.text || '';
     $('#windowTable tbody').innerHTML = result.chunks.map(function (c) {
       const excerpt = text.slice(c.char_start, c.char_start + 90).replace(/\s+/g, ' ');
       return '<tr>'
@@ -807,13 +820,20 @@
 
   /* ================================================================== model */
   function bindModelPanel() {
-    $('#btnLoadModel').addEventListener('click', async function () {
+    async function startLoad(update) {
       try {
-        await window.API.loadModel($('#selDevice').value || null);
-        U.toast('Loading started. The first run downloads ~1.6 GB.', 'info');
+        const tokenInput = $('#inpHfToken');
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        await window.API.loadModel($('#selDevice').value || null, token || null, update);
+        if (tokenInput) tokenInput.value = '';   // held in memory for this request only
+        U.toast(update
+          ? 'Checking Hugging Face for the latest version. Only changed files are downloaded.'
+          : 'Loading started. The first run downloads ~4 GB.', 'info');
         pollModel(true);
       } catch (err) { U.toast(err.message, 'error'); }
-    });
+    }
+    $('#btnLoadModel').addEventListener('click', function () { startLoad(false); });
+    $('#btnUpdateModel').addEventListener('click', function () { startLoad(true); });
     $('#btnUnloadModel').addEventListener('click', async function () {
       try {
         State.model = await window.API.unloadModel();
@@ -831,6 +851,7 @@
       renderModelPill(status);
       refreshModelPanel();
       if (!wasLoaded && status.loaded) {
+        refreshStrata();
         U.toast('Model ready on ' + status.device.toUpperCase()
           + ' (' + fmt.duration(status.load_seconds) + ')', 'success');
       }
@@ -864,7 +885,7 @@
     } else {
       $('#modelPillTitle').textContent = status.downloaded ? 'Not loaded' : 'Not downloaded';
       $('#modelPillSub').textContent = status.downloaded
-        ? 'Open Model to load' : '~1.6 GB download';
+        ? 'Open Model to load' : '~4 GB download';
     }
   }
 
@@ -883,11 +904,35 @@
         : progress.percent.toFixed(0) + '%';
     }
 
+    // The repo is gated: offer the token box whenever a download may be needed.
+    // "Download latest" on an already-cached model needs it too.
+    const needsDownload = !status.downloaded && !status.loaded;
+    $('#tokenField').hidden = !needsDownload && !status.can_update;
+    const hint = $('#tokenHint');
+    hint.hidden = !needsDownload;
+    if (needsDownload) {
+      const repoUrl = escapeHtml(status.repo_url || '');
+      hint.innerHTML = 'This model is gated. Accept the conditions on '
+        + '<a href="' + repoUrl + '" target="_blank" rel="noopener">its Hugging Face page</a>, then '
+        + '<a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">create a read token</a> '
+        + 'and paste it above. It is used for this download only and is not saved. '
+        + (status.token_from_env ? 'A token from your environment will be used if this is left empty.' : '');
+    } else if (status.can_update) {
+      hint.hidden = false;
+      hint.textContent = 'The token is only needed for "Download latest". It is used for that request only and is not saved.'
+        + (status.token_from_env ? ' A token from your environment will be used if this is left empty.' : '');
+    }
+    const errBox = $('#modelError');
+    errBox.hidden = !status.error;
+    errBox.textContent = status.error || '';
+
     $('#btnLoadModel').disabled = status.busy || status.loaded;
     $('#btnUnloadModel').disabled = !status.loaded;
+    $('#btnUpdateModel').hidden = !status.can_update;
+    $('#btnUpdateModel').disabled = status.busy;
     $('#btnLoadModel').textContent = status.loaded
       ? 'Loaded'
-      : status.downloaded ? 'Load model' : 'Download & load (1.6 GB)';
+      : status.downloaded ? 'Load model' : 'Download & load (~4 GB)';
 
     const m = status.model;
     $('#modelStats').innerHTML = [
@@ -910,6 +955,7 @@
       + metaRow('Pooling ρ', m ? m.rho : '—')
       + metaRow('Human anchors', m ? m.n_human_anchors : '—')
       + metaRow('Training step', m ? m.released_step : '—')
+      + metaRow('Revision', status.revision || '—')
       + metaRow('Path', status.path || 'not downloaded')
       + '</div>',
 
@@ -940,7 +986,7 @@
   function renderGuide() {
     $('#guide').innerHTML = `
       <h3>What MELD actually outputs</h3>
-      <p>MELD is a 395M-parameter encoder that produces a <strong>raw score</strong> for a document.
+      <p>MELD is a 1B-parameter encoder that produces a <strong>raw score</strong> for a document.
       The probability shown on the gauge is just <code>sigmoid(raw score)</code> — it is a squashed
       view of the same number, <em>not</em> a calibrated "chance this is AI".</p>
       <p>The document score is the mean of the most machine-like 25% of tokens
@@ -948,7 +994,7 @@
       paragraphs can still score high — and why the sentence heatmap is worth reading.</p>
 
       <h3>Why the cut-off is not 0.5</h3>
-      <p>The checkpoint ships thresholds measured on 12,461 human documents: the score below which
+      <p>The checkpoint ships thresholds measured on human documents (47,710 for v83): the score below which
       99%, 95% or 90% of genuine human writing fell. Picking <strong>1% FPR</strong> means roughly one
       in a hundred human documents of that type would be wrongly flagged. Those thresholds differ a
       lot by document type, so set <strong>Document type</strong> to match what you are checking.</p>
@@ -964,14 +1010,16 @@
       the app says so. The length bar under the editor tracks this.</p>
 
       <h3>Documents longer than the context</h3>
-      <p>MELD reads 2,048 tokens at a time. Longer documents are cut into overlapping windows; where
-      windows overlap, each token keeps the score from the window in which it sat furthest from an
-      edge. The document score then pools the top 25% of tokens across the whole text, and the
-      <strong>Windows</strong> tab shows each window separately.</p>
+      <p>MELD reads 2,048 tokens at a time. Text is cleaned first (look-alike characters folded,
+      invisible characters and markdown removed), then cut into consecutive windows. The document
+      score pools the top 25% of tokens across the whole text, and the <strong>Windows</strong> tab
+      shows each window separately. Only the first 16,384 tokens (roughly 12,000 words) are scored;
+      the app warns when it cuts a document short.</p>
 
       <h3>Attribution</h3>
-      <p>The checkpoint carries 11 family prototypes and 9 edit-operation prototypes. The Attribution
-      tab reads the softmax over those prototypes for the tokens that drove the score. This is
+      <p>The checkpoint carries 60 generator prototypes grouped into 7 model families, and 6
+      edit-operation prototypes. The Attribution tab reads the softmax over families and operations
+      for the tokens that drove the score. This is
       <strong>indicative only</strong>: the model card publishes no accuracy figures for it, so treat
       it as a stylistic lean rather than an identification of a specific model.</p>
 

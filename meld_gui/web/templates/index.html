@@ -84,7 +84,7 @@
       <header class="view-head">
         <div>
           <h1>Analyze a document</h1>
-          <p class="sub">Paste text or drop a file. MELD scores the first 2,048 tokens per window and pools across the whole document.</p>
+          <p class="sub">Paste text or drop a file. MELD reads 2,048 tokens per window and pools across the whole document (up to 16,384 tokens).</p>
         </div>
         <div class="view-head-actions">
           <button class="btn btn-ghost" id="btnSample">Load sample</button>
@@ -429,6 +429,8 @@
         </div>
         <div class="view-head-actions">
           <button class="btn btn-primary" id="btnLoadModel">Load model</button>
+          <button class="btn btn-ghost" id="btnUpdateModel"
+                  title="Check Hugging Face for a newer checkpoint and download it">Download latest</button>
           <button class="btn btn-ghost" id="btnUnloadModel">Unload</button>
         </div>
       </header>
@@ -447,7 +449,14 @@
               <option value="cpu">CPU</option>
             </select>
           </label>
+          <label class="field" id="tokenField" hidden>
+            <span>Hugging Face token</span>
+            <input type="password" id="inpHfToken" autocomplete="off" spellcheck="false"
+                   placeholder="hf_..." />
+          </label>
         </div>
+        <p class="hint" id="tokenHint" hidden></p>
+        <p class="hint model-error" id="modelError" role="alert" hidden></p>
         <div class="stat-grid" id="modelStats"></div>
         <div class="model-meta" id="modelMeta"></div>
       </div>

@@ -23,12 +23,31 @@ REQUIRED_FILES = (
     "model.safetensors",
     "tokenizer.json",
     "tokenizer_config.json",
-    "special_tokens_map.json",
 )
+
+#: Fetched when the repo has them, ignored when it does not. The current
+#: upstream revision no longer ships special_tokens_map.json, and the tokenizer
+#: reads its special tokens from tokenizer_config.json instead.
+#: meld.py and README.md hold the upstream reference scorer; they are small and
+#: let a new checkpoint revision be checked against the reference maths.
+OPTIONAL_FILES = ("special_tokens_map.json", "meld.py", "README.md")
 
 
 def _env(name: str, default: str) -> str:
     return os.environ.get(f"MELD_{name}", default)
+
+
+def _env_token() -> str:
+    """Hugging Face access token from the environment, if any.
+
+    ``MELD_HF_TOKEN`` wins, then the two names the Hugging Face tools use.
+    The value is only ever held in memory and sent to huggingface.co.
+    """
+    for name in ("MELD_HF_TOKEN", "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _env_int(name: str, default: int) -> int:
@@ -51,6 +70,9 @@ class Settings:
     #: HuggingFace cache and download on demand".
     model_dir: str = field(default_factory=lambda: _env("MODEL_DIR", ""))
     device: str = field(default_factory=lambda: _env("DEVICE", "auto"))
+    #: Token for the gated MELD repo. Only used for the first download. Kept out
+    #: of repr() so it cannot leak into logs or tracebacks.
+    hf_token: str = field(default_factory=_env_token, repr=False)
 
     host: str = field(default_factory=lambda: _env("HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: _env_int("PORT", 8000))
@@ -63,7 +85,8 @@ class Settings:
         default_factory=lambda: Path(_env("DATA_DIR", str(PROJECT_ROOT / "data")))
     )
 
-    #: Token overlap between consecutive windows of a long document.
+    #: Token overlap between consecutive windows of a long document. Ignored by
+    #: checkpoints whose scoring contract says ``window_overlap: none`` (v7+).
     chunk_overlap: int = field(default_factory=lambda: _env_int("CHUNK_OVERLAP", 128))
     #: Windows scored per forward pass. Raise on a large GPU, lower on CPU.
     batch_size: int = field(default_factory=lambda: _env_int("BATCH_SIZE", 4))
@@ -77,6 +100,10 @@ class Settings:
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def repo_url(self) -> str:
+        return f"https://huggingface.co/{self.repo_id}"
 
     @property
     def history_db(self) -> Path:

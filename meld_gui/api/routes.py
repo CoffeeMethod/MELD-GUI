@@ -35,6 +35,18 @@ from ..services.jobs import jobs
 router = APIRouter(prefix="/api")
 
 
+def _strata_options() -> list[dict[str, str]]:
+    """Strata of the checkpoint in use; they changed between releases."""
+    table = manager.threshold_table()
+    if table is not None:
+        return table.options()
+    return [
+        {"key": key, "label": label, "hint": STRATA_HINTS.get(key, "")}
+        for key, label in STRATA_LABELS.items()
+        if key in ("overall", "academic", "creative", "qa_social", "reviews", "web", "wiki")
+    ]
+
+
 def _options(payload: Any) -> AnalysisOptions:
     return AnalysisOptions(
         stratum=getattr(payload, "stratum", OVERALL),
@@ -78,10 +90,7 @@ def get_config() -> dict[str, Any]:
             {"key": key, "label": f"{float(key.split('_')[1]) * 100:g}% FPR"}
             for key in FPR_KEYS
         ],
-        "strata": [
-            {"key": key, "label": label, "hint": STRATA_HINTS.get(key, "")}
-            for key, label in STRATA_LABELS.items()
-        ],
+        "strata": _strata_options(),
         "verdicts": VERDICT_LABELS,
     }
 
@@ -94,8 +103,12 @@ def model_status() -> dict[str, Any]:
 
 @router.post("/model/load", tags=["model"])
 def model_load(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    device = (payload or {}).get("device")
-    manager.ensure_async(device)
+    body = payload or {}
+    device = body.get("device")
+    token = body.get("hf_token")
+    token = token.strip() if isinstance(token, str) else None
+    # The token is used for this download only and is not kept anywhere.
+    manager.ensure_async(device, token or None, update=bool(body.get("update")))
     return manager.status()
 
 
